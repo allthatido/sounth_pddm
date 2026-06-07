@@ -1,0 +1,7 @@
+*.jpg
+disease_batches
+datasets
+data_processing_scripts
+training/prepared
+__pycache__/
+bkpup
