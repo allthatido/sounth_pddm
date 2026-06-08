@@ -3,6 +3,7 @@ import hashlib
 import json
 import posixpath
 import random
+import re
 from pathlib import Path
 
 
@@ -64,6 +65,28 @@ def normalize_record(
     }
 
 
+def image_key(row: dict) -> str:
+    image = str((row.get("images") or [""])[0]).strip().lower()
+    parts = [part for part in re.split(r"[\\/]+", image) if part]
+    if "datasets" in parts:
+        parts = parts[parts.index("datasets") :]
+    return "/".join(parts)
+
+
+def dedupe_by_image(rows: list[dict]) -> tuple[list[dict], int]:
+    seen = set()
+    deduped = []
+    removed = 0
+    for row in rows:
+        key = image_key(row)
+        if key in seen:
+            removed += 1
+            continue
+        seen.add(key)
+        deduped.append(row)
+    return deduped, removed
+
+
 def write_jsonl(path: Path, rows: list[dict]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         for row in rows:
@@ -114,6 +137,8 @@ def main() -> None:
                 continue
             rows.append(row)
 
+    rows, duplicate_image_records = dedupe_by_image(rows)
+
     rng = random.Random(args.seed)
     rng.shuffle(rows)
 
@@ -137,6 +162,7 @@ def main() -> None:
         "test_records": len(test_rows),
         "skipped_records": skipped,
         "bad_json_records": bad_json,
+        "duplicate_image_records_removed": duplicate_image_records,
         "image_root": str(image_root),
         "image_prefix": args.image_prefix,
         "local_images": args.local_images,

@@ -1,0 +1,6 @@
+gradio>=5.35
+fastapi>=0.115
+python-multipart>=0.0.20
+pillow>=10.0
+numpy>=1.26
+soundfile>=0.12

@@ -1,0 +1,787 @@
+:root {
+  color-scheme: dark;
+  --ink: #2d1c0d;
+  --paper: #ead8ab;
+  --paper-light: #f6e8c3;
+  --paper-deep: #b98944;
+  --wood: #2c1a0d;
+  --wood-hi: #6b4320;
+  --moss: #153b22;
+  --moss-hi: #47752d;
+  --sap: #a7d333;
+  --gold: #d7aa45;
+  --gold-hi: #ffe49a;
+  --ember: #8e321e;
+  --shadow: rgba(8, 12, 6, 0.78);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Georgia, "Times New Roman", serif;
+  color: #f7e6b6;
+  background:
+    linear-gradient(rgba(3, 12, 7, 0.1), rgba(3, 12, 7, 0.42)),
+    url("/frontend/assets/jungle-background.png") center / cover fixed;
+  overflow-x: hidden;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  letter-spacing: 0;
+}
+
+.app-shell {
+  position: relative;
+  width: min(1740px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 14px clamp(10px, 1.6vw, 28px) 22px;
+}
+
+.forest-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 30%, transparent 0 36%, rgba(0, 0, 0, 0.3) 68%),
+    linear-gradient(90deg, rgba(3, 12, 7, 0.68), transparent 18% 82%, rgba(3, 12, 7, 0.72));
+  z-index: -1;
+}
+
+.hero-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(300px, 1.08fr) minmax(260px, 0.75fr) minmax(520px, 1.2fr) auto;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.brand {
+  min-width: 0;
+}
+
+.brand-logo {
+  display: block;
+  width: min(520px, 100%);
+  height: auto;
+  filter: drop-shadow(0 14px 14px rgba(0, 0, 0, 0.8));
+}
+
+.profile-ribbon,
+.score-strip,
+.quest-panel,
+.expedition-board,
+.journal-panel,
+.achievement-band {
+  border-radius: 8px;
+  box-shadow: 0 18px 34px var(--shadow), inset 0 1px 0 rgba(255, 237, 169, 0.2);
+}
+
+.profile-ribbon {
+  position: relative;
+  min-height: 82px;
+  padding: 14px 18px 14px 78px;
+  color: var(--gold-hi);
+  background:
+    linear-gradient(90deg, rgba(22, 47, 24, 0.96), rgba(28, 42, 20, 0.9)),
+    repeating-linear-gradient(90deg, transparent 0 14px, rgba(255, 225, 120, 0.03) 14px 16px);
+  border: 2px solid rgba(215, 170, 69, 0.64);
+}
+
+.profile-medallion {
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  color: #c9e768;
+  font-size: 38px;
+  border: 5px solid #7b531d;
+  background:
+    url("/frontend/assets/leaf-medallion.png") center / cover,
+    radial-gradient(circle, #355f28 0 42%, #122515 43% 62%, #8a6023 63% 100%);
+  box-shadow: inset 0 0 16px #000, 0 8px 14px rgba(0, 0, 0, 0.65);
+}
+
+.profile-ribbon span,
+.profile-ribbon strong {
+  display: block;
+}
+
+.profile-ribbon span {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.profile-ribbon strong {
+  margin-top: 2px;
+  color: #d9ff6b;
+  font-size: 15px;
+}
+
+.xp-track {
+  height: 12px;
+  margin-top: 10px;
+  border: 2px solid #725a26;
+  border-radius: 999px;
+  background: #1b1b10;
+  overflow: hidden;
+}
+
+.xp-track i {
+  display: block;
+  width: 48%;
+  height: 100%;
+  background: linear-gradient(90deg, #4d8b2b, #d1e64d);
+}
+
+.score-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(108px, 1fr));
+  overflow: hidden;
+  border: 2px solid rgba(215, 170, 69, 0.58);
+  background: rgba(14, 28, 18, 0.9);
+}
+
+.score-strip span {
+  position: relative;
+  min-height: 78px;
+  padding: 10px 12px 8px;
+  text-align: center;
+  color: #f4d994;
+  border-left: 1px solid rgba(215, 170, 69, 0.28);
+}
+
+.score-strip span:first-child {
+  border-left: 0;
+}
+
+.score-strip b {
+  color: var(--gold);
+  font-size: 22px;
+}
+
+.score-strip strong {
+  display: inline-block;
+  margin: 0 7px;
+  color: #ffe49a;
+  font-size: 30px;
+}
+
+.top-tools {
+  display: flex;
+  align-self: start;
+  gap: 10px;
+}
+
+.top-tools button {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 3px solid #805c24;
+  border-radius: 50%;
+  color: #ffd878;
+  background: radial-gradient(circle, #24301a 0 48%, #0f180e 49% 100%);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.7), inset 0 0 8px rgba(255, 220, 120, 0.3);
+  cursor: pointer;
+}
+
+.quest-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 340px) minmax(430px, 1fr) minmax(290px, 390px);
+  gap: 22px;
+  align-items: start;
+}
+
+.quest-panel,
+.journal-panel,
+.expedition-board,
+.achievement-band {
+  position: relative;
+  color: var(--ink);
+  border: 3px solid rgba(86, 47, 16, 0.9);
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.23), transparent 32%),
+    url("/frontend/assets/parchment-texture.png") center / 512px 512px,
+    linear-gradient(135deg, rgba(248, 225, 178, 0.97), rgba(201, 156, 83, 0.97));
+}
+
+.quest-panel::before,
+.journal-panel::before,
+.expedition-board::before,
+.achievement-band::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  border: 1px solid rgba(89, 57, 22, 0.34);
+  border-radius: 6px;
+  box-shadow: inset 0 0 34px rgba(78, 45, 10, 0.16);
+}
+
+.quest-panel {
+  padding: 30px 24px 22px;
+}
+
+.hanging-compass {
+  position: absolute;
+  top: -18px;
+  left: 22px;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  color: #fff0ad;
+  font-size: 26px;
+  border: 4px solid #8a5d22;
+  background: radial-gradient(circle, #295226, #171c10);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.6);
+}
+
+.quest-panel h2,
+.journal-panel h2,
+.journal-output h2,
+.achievement-band h2 {
+  color: #4c2f0e;
+  text-transform: uppercase;
+  font-size: 24px;
+  line-height: 1.1;
+  text-align: center;
+  text-shadow: 0 1px 0 rgba(255, 241, 194, 0.75);
+}
+
+.quest-panel p {
+  margin: 26px 0 14px;
+  padding-left: 54px;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.quest-panel p::before {
+  content: "🌼";
+  position: absolute;
+  left: 28px;
+  margin-top: -5px;
+  font-size: 42px;
+}
+
+.quest-meter,
+.journal-meter {
+  height: 16px;
+  border: 2px solid #6b4c1f;
+  border-radius: 999px;
+  background: #73633f;
+  overflow: hidden;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.55);
+}
+
+.quest-meter span,
+.journal-meter span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #1c692e, #b7dc35);
+  box-shadow: 0 0 12px rgba(156, 220, 45, 0.72);
+}
+
+.quest-reward {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 22px;
+  font-size: 14px;
+}
+
+.quest-reward i {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #e9ff82;
+  background: #32561e;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.quest-reward b {
+  margin-left: auto;
+  font-size: 18px;
+}
+
+.nav-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.nav-item {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  min-height: 68px;
+  padding: 10px 14px;
+  border: 2px solid rgba(215, 170, 69, 0.48);
+  border-radius: 8px;
+  color: #f8e3a3;
+  background:
+    linear-gradient(180deg, rgba(38, 64, 28, 0.86), rgba(20, 28, 15, 0.92)),
+    url("/frontend/assets/wood-texture.png") center / 320px 160px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 5px 0 rgba(29, 17, 6, 0.72);
+}
+
+.nav-item span {
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(215, 170, 69, 0.16);
+}
+
+.nav-item b,
+.nav-item small {
+  display: block;
+}
+
+.nav-item b {
+  font-size: 19px;
+  text-transform: uppercase;
+}
+
+.nav-item small {
+  color: #f3d67e;
+  font-size: 13px;
+}
+
+.nav-item.active {
+  background:
+    linear-gradient(180deg, rgba(44, 106, 47, 0.9), rgba(23, 55, 28, 0.96)),
+    url("/frontend/assets/wood-texture.png") center / 320px 160px;
+}
+
+.expedition-board {
+  padding: clamp(18px, 2vw, 34px);
+  border-width: 4px;
+}
+
+.leaf-cluster {
+  position: absolute;
+  width: 120px;
+  height: 70px;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 20% 70%, #2f6727 0 22%, transparent 23%),
+    radial-gradient(ellipse at 42% 44%, #6ca530 0 24%, transparent 25%),
+    radial-gradient(ellipse at 70% 56%, #285d25 0 28%, transparent 29%);
+  filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.45));
+}
+
+.leaf-cluster.top-left {
+  top: -20px;
+  left: 52px;
+  transform: rotate(-8deg);
+}
+
+.leaf-cluster.bottom-right {
+  right: -22px;
+  bottom: -14px;
+  transform: rotate(158deg);
+}
+
+.board-kicker {
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 22px;
+  color: #43300f;
+}
+
+.board-kicker::before,
+.board-kicker::after {
+  content: " ✤ ";
+  color: #546021;
+}
+
+.upload-drop {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: clamp(300px, 41vh, 450px);
+  border: 4px dashed rgba(83, 86, 45, 0.72);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(224, 218, 143, 0.72), rgba(224, 218, 143, 0.72)),
+    url("/frontend/assets/jungle-background.png") center / cover;
+  cursor: pointer;
+  overflow: hidden;
+  text-align: center;
+  box-shadow: inset 0 0 36px rgba(76, 68, 25, 0.24);
+}
+
+.upload-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+#previewImage {
+  position: absolute;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 12px;
+  background: rgba(40, 53, 28, 0.18);
+}
+
+.upload-drop.has-image #previewImage {
+  display: block;
+}
+
+.camera-glyph {
+  display: grid;
+  place-items: center;
+  width: 102px;
+  height: 80px;
+  border-radius: 8px;
+  background: #37301b;
+  color: #f7e2a4;
+  font-size: 48px;
+  line-height: 1;
+  z-index: 1;
+  box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45);
+}
+
+.upload-drop strong {
+  margin-top: 118px;
+  z-index: 1;
+  color: #2e2511;
+  font-size: clamp(22px, 2.6vw, 34px);
+  line-height: 1.16;
+}
+
+.voice-line {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 244, 195, 0.58);
+}
+
+.voice-line input {
+  min-width: 0;
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.action-button {
+  min-height: 82px;
+  border: 3px solid #f0c86e;
+  border-radius: 8px;
+  color: #ffe8a9;
+  font-size: clamp(18px, 1.6vw, 25px);
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 8px 0 rgba(64, 36, 15, 0.76), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.discover {
+  background: linear-gradient(#236d37, #0f351d);
+}
+
+.rescue {
+  background: linear-gradient(#ad472d, #5f1d12);
+}
+
+.action-button:active {
+  transform: translateY(3px);
+  box-shadow: 0 5px 0 rgba(64, 36, 15, 0.76);
+}
+
+.action-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.journal-output {
+  position: relative;
+  margin-top: 24px;
+  padding: 18px;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.2), transparent 34%),
+    url("/frontend/assets/parchment-texture.png") center / 512px 512px,
+    rgba(255, 240, 193, 0.82);
+  border: 2px solid rgba(110, 79, 30, 0.5);
+}
+
+.journal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.journal-heading span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #244b29;
+  color: #fff0bd;
+}
+
+#resultText {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 18px;
+}
+
+#voicePlayer {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.journal-output small {
+  display: block;
+  margin-top: 8px;
+  color: #5b421c;
+}
+
+.journal-panel {
+  padding: 30px 22px 24px;
+  transform: rotate(1deg);
+}
+
+.journal-progress-label {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.recent-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.recent-card {
+  min-height: 136px;
+  border-radius: 8px;
+  padding: 10px;
+  color: #2f2211;
+  background:
+    linear-gradient(rgba(255, 245, 211, 0.78), rgba(255, 245, 211, 0.78)),
+    url("/frontend/assets/jungle-background.png") center / cover;
+  border: 2px solid rgba(92, 67, 29, 0.42);
+  box-shadow: inset 0 0 0 3px rgba(255, 248, 217, 0.36);
+}
+
+.recent-card strong,
+.recent-card span {
+  display: block;
+  padding: 4px 5px;
+  background: rgba(251, 235, 188, 0.78);
+  border-radius: 4px;
+}
+
+.recent-card span {
+  margin-top: 7px;
+  color: #735320;
+  font-size: 13px;
+}
+
+.view-journal {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 18px;
+  border: 2px solid #6b4d20;
+  border-radius: 8px;
+  color: #f7e6b6;
+  text-transform: uppercase;
+  background:
+    linear-gradient(rgba(122, 85, 37, 0.86), rgba(59, 37, 14, 0.94)),
+    url("/frontend/assets/wood-texture.png") center / 320px 160px;
+  cursor: pointer;
+}
+
+.achievement-band {
+  margin: 22px auto 0;
+  padding: 18px 24px 24px;
+  width: min(920px, 100%);
+}
+
+.achievement-band h2 {
+  margin-bottom: 16px;
+}
+
+.badge-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(90px, 1fr));
+  gap: 18px;
+  text-align: center;
+}
+
+.badge-row span {
+  color: #3a260f;
+  font-size: 14px;
+}
+
+.badge-row i {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 8px;
+  border-radius: 50%;
+  color: #ffe7a2;
+  font-style: normal;
+  font-weight: 700;
+  background:
+    url("/frontend/assets/leaf-medallion.png") center / cover,
+    radial-gradient(circle, #bd8d24 0 36%, #604016 37% 60%, #11180b 61% 100%);
+  border: 3px solid #e5b24e;
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.5), inset 0 0 8px rgba(255, 245, 175, 0.32);
+}
+
+.prop-backpack,
+.prop-quill {
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.9;
+  filter: drop-shadow(0 16px 18px rgba(0, 0, 0, 0.72));
+}
+
+.prop-backpack {
+  left: 10px;
+  bottom: 4px;
+  width: 138px;
+  height: 110px;
+  border-radius: 30% 30% 12px 12px;
+  background:
+    radial-gradient(circle at 30% 72%, #d6a566 0 10%, transparent 11%),
+    linear-gradient(90deg, #8a4d1f, #4b2410);
+  border: 4px solid #2a170b;
+}
+
+.prop-backpack::before {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: -18px;
+  width: 76px;
+  height: 54px;
+  border: 7px solid #321a0c;
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+}
+
+.prop-quill {
+  right: 16px;
+  bottom: 0;
+  width: 130px;
+  height: 190px;
+  background:
+    linear-gradient(118deg, transparent 0 47%, #e8d9b8 48% 51%, transparent 52%),
+    radial-gradient(ellipse at 68% 14%, #f1ead4 0 12%, transparent 13%),
+    radial-gradient(ellipse at 74% 30%, #e6ddc4 0 12%, transparent 13%),
+    radial-gradient(ellipse at 80% 48%, #d8ccb1 0 10%, transparent 11%);
+  transform: rotate(22deg);
+}
+
+@media (max-width: 1320px) {
+  .hero-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .score-strip {
+    grid-column: 1 / -1;
+  }
+
+  .top-tools {
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+}
+
+@media (max-width: 1180px) {
+  .quest-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .journal-panel {
+    transform: none;
+  }
+}
+
+@media (max-width: 740px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  .hero-bar {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .brand-logo {
+    width: min(420px, 100%);
+  }
+
+  .top-tools {
+    position: static;
+  }
+
+  .score-strip,
+  .action-row,
+  .recent-list,
+  .badge-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .upload-drop {
+    min-height: 265px;
+  }
+
+  .quest-panel,
+  .journal-panel,
+  .expedition-board,
+  .achievement-band {
+    padding: 16px;
+  }
+
+  .prop-backpack,
+  .prop-quill {
+    display: none;
+  }
+}

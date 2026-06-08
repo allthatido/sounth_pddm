@@ -5,3 +5,5 @@ data_processing_scripts
 training/prepared
 __pycache__/
 bkpup
+plant_disease_training.jsonl
+sa_key.json

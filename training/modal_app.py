@@ -16,11 +16,13 @@ DATA_DIR = Path("/data")
 CKPT_DIR = Path("/checkpoints")
 HF_DIR = Path("/hf-cache")
 EVAL_SCRIPT = Path(__file__).parent / "evaluate_metrics.py"
+MODEL_NAME = "openbmb/MiniCPM-V-4.6"
 
 
 image = (
     modal.Image.from_registry("nvidia/cuda:12.4.1-devel-ubuntu22.04", add_python="3.11")
     .apt_install("git", "git-lfs", "libgl1", "libglib2.0-0", "ninja-build")
+    .pip_install("wheel")
     .pip_install(
         "torch",
         "torchvision",
@@ -39,7 +41,6 @@ image = (
         "pyemd",
     )
     .pip_install("git+https://github.com/AIPHES/emnlp19-moverscore.git")
-    .run_commands("pip install flash-attn --no-build-isolation")
 )
 
 app = modal.App(APP_NAME, image=image)
@@ -59,19 +60,66 @@ def latest_checkpoint(run_name: str) -> str | None:
     if not run_dir.exists():
         return None
     checkpoints = sorted(
-        [p for p in run_dir.glob("checkpoint-*") if p.is_dir()],
-        key=lambda p: int(p.name.split("-")[-1]) if p.name.split("-")[-1].isdigit() else -1,
+        [p for p in run_dir.rglob("checkpoint-*") if p.is_dir()],
+        key=lambda p: (
+            p.stat().st_mtime,
+            int(p.name.split("-")[-1]) if p.name.split("-")[-1].isdigit() else -1,
+        ),
     )
     return str(checkpoints[-1]) if checkpoints else None
 
 
+def model_cache_env() -> dict[str, str]:
+    return {
+        "HF_HOME": str(HF_DIR),
+        "TRANSFORMERS_CACHE": str(HF_DIR / "transformers"),
+        "HF_HUB_CACHE": str(HF_DIR / "hub"),
+        "MODELSCOPE_CACHE": str(HF_DIR / "modelscope"),
+        "MODELSCOPE_HOME": str(HF_DIR / "modelscope"),
+        "TORCH_HOME": str(HF_DIR / "torch"),
+        "XDG_CACHE_HOME": str(HF_DIR / "xdg"),
+    }
+
+
+@app.function(
+    timeout=24 * 60 * 60,
+    volumes={HF_DIR: HF_VOL},
+)
+def prefetch_model(model_name: str = MODEL_NAME) -> None:
+    for path in [
+        HF_DIR,
+        HF_DIR / "transformers",
+        HF_DIR / "hub",
+        HF_DIR / "modelscope",
+        HF_DIR / "torch",
+        HF_DIR / "xdg",
+    ]:
+        path.mkdir(parents=True, exist_ok=True)
+
+    env = model_cache_env()
+    run(
+        [
+            "python",
+            "-c",
+            (
+                "from huggingface_hub import snapshot_download; "
+                "import os; "
+                "model=os.environ['MODEL_NAME']; "
+                "print(f'Prefetching {model}'); "
+                "print(snapshot_download(model))"
+            ),
+        ],
+        env={**env, "MODEL_NAME": model_name},
+    )
+    HF_VOL.commit()
+
+
 @app.function(
     gpu=["L40S", "A100-40GB"],
-    timeout=72 * 60 * 60,
+    timeout=24 * 60 * 60,
     volumes={DATA_DIR: DATA_VOL, CKPT_DIR: CKPT_VOL, HF_DIR: HF_VOL},
     secrets=[
-        modal.Secret.from_name("huggingface-secret", allow_missing=True),
-        modal.Secret.from_name("wandb-secret", allow_missing=True),
+        modal.Secret.from_name("huggingface-secret"),
     ],
 )
 def train(
@@ -79,11 +127,17 @@ def train(
     train_file: str = "/data/train.jsonl",
     val_file: str = "/data/val.jsonl",
     max_steps: int = -1,
-    learning_rate: str = "1e-5",
+    learning_rate: str = "2e-6",
+    lr_scheduler_type: str = "cosine",
     lora_rank: int = 16,
     lora_alpha: int = 32,
-    save_steps: int = 1000,
-    eval_steps: int = 1000,
+    per_device_train_batch_size: int = 8,
+    gradient_accumulation_steps: int = 16,
+    logging_steps: int = 10,
+    checkpoint_every_steps: int = 350,
+    eval_steps: int = 350,
+    evaluation_strategy: str = "steps",
+    attn_impl: str = "sdpa",
 ) -> None:
     output_dir = CKPT_DIR / run_name
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -92,9 +146,7 @@ def train(
     resume = latest_checkpoint(run_name)
 
     env = {
-        "HF_HOME": str(HF_DIR),
-        "TRANSFORMERS_CACHE": str(HF_DIR / "transformers"),
-        "HF_HUB_CACHE": str(HF_DIR / "hub"),
+        **model_cache_env(),
         "DOWNSAMPLE_MODE": "4x",
         "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
     }
@@ -103,7 +155,7 @@ def train(
         "swift",
         "sft",
         "--model",
-        "openbmb/MiniCPM-V-4.6",
+        MODEL_NAME,
         "--model_type",
         "minicpmv4_6",
         "--template",
@@ -123,23 +175,29 @@ def train(
         "--max_length",
         "4096",
         "--per_device_train_batch_size",
-        "1",
+        str(per_device_train_batch_size),
         "--gradient_accumulation_steps",
-        "16",
+        str(gradient_accumulation_steps),
         "--learning_rate",
         learning_rate,
+        "--lr_scheduler_type",
+        lr_scheduler_type,
         "--num_train_epochs",
         "1",
         "--warmup_ratio",
         "0.03",
+        "--logging_steps",
+        str(logging_steps),
+        "--eval_strategy",
+        evaluation_strategy,
         "--save_steps",
-        str(save_steps),
+        str(checkpoint_every_steps),
         "--eval_steps",
         str(eval_steps),
         "--save_total_limit",
         "10",
         "--attn_impl",
-        "flash_attn",
+        attn_impl,
         "--lora_rank",
         str(lora_rank),
         "--lora_alpha",
@@ -185,7 +243,7 @@ def sample_generate(
     if not checkpoint:
         raise RuntimeError(f"No checkpoint found for {run_name}")
     env = {
-        "HF_HOME": str(HF_DIR),
+        **model_cache_env(),
         "DOWNSAMPLE_MODE": "4x",
     }
     sample_file = CKPT_DIR / run_name / "eval_sample.jsonl"
@@ -202,7 +260,7 @@ def sample_generate(
         "swift",
         "infer",
         "--model",
-        "openbmb/MiniCPM-V-4.6",
+        MODEL_NAME,
         "--adapter",
         checkpoint,
         "--model_type",
@@ -253,7 +311,7 @@ def generate_for_eval(
             dst.write(line)
 
     env = {
-        "HF_HOME": str(HF_DIR),
+        **model_cache_env(),
         "DOWNSAMPLE_MODE": "4x",
     }
 
@@ -264,7 +322,7 @@ def generate_for_eval(
         "swift",
         "infer",
         "--model",
-        "openbmb/MiniCPM-V-4.6",
+        MODEL_NAME,
         "--model_type",
         "minicpmv4_6",
         "--template",

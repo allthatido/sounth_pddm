@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aranya: A Wildkeeper's Adventure</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts for the nature/adventure feel -->
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&amp;family=Quattrocento:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'jungle-dark': '#1a2e1a',
+            'jungle-green': '#2d4d2d',
+            'parchment': '#e8d5b5',
+            'parchment-dark': '#d4bc8f',
+            'gold-accent': '#c5a044',
+            'wood-brown': '#3e2723',
+          },
+          fontFamily: {
+            'title': ['Cinzel', 'serif'],
+            'body': ['Quattrocento', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-textures">
+    /* Deep jungle background simulation */
+    body {
+      background: radial-gradient(circle at center, #2d4d2d 0%, #1a2e1a 100%);
+      background-attachment: fixed;
+      color: #f3e5ab;
+      font-family: 'Quattrocento', serif;
+    }
+
+    /* Wood frame effect */
+    .wood-frame {
+      border: 6px solid #3e2723;
+      border-image: linear-gradient(to bottom, #5d4037, #2d1b10) 1;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 5px 15px rgba(0,0,0,0.7);
+      background: #3e2723;
+    }
+
+    /* Parchment effect */
+    .parchment-bg {
+      background-color: #e8d5b5;
+      background-image: url('https://www.transparenttextures.com/patterns/parchment.png');
+      color: #3e2723;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.1);
+    }
+
+    /* Button styles */
+    .btn-green {
+      background: linear-gradient(180deg, #3d6b3d 0%, #1e3a1e 100%);
+      border: 1px solid #c5a044;
+      box-shadow: 0 4px 0 #142a14;
+    }
+
+    .btn-red {
+      background: linear-gradient(180deg, #8b3a3a 0%, #4a1c1c 100%);
+      border: 1px solid #c5a044;
+      box-shadow: 0 4px 0 #2a1010;
+    }
+
+    /* Custom scrollbar for mobile */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1a2e1a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #c5a044;
+      border-radius: 10px;
+    }
+
+    .border-ornate {
+      border: 2px solid #c5a044;
+      position: relative;
+    }
+
+    /* Decorative ivy corners placeholder */
+    .ivy-corner::before {
+      content: '🌿';
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      font-size: 1.5rem;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 space-y-6">
+<!-- BEGIN: Header Branding -->
+<header class="flex flex-col items-center space-y-2 pt-2" data-purpose="main-branding">
+<div class="relative text-center">
+<h1 class="font-title text-5xl font-bold tracking-widest text-parchment drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">ARANYA</h1>
+<p class="font-title text-xs tracking-widest text-gold-accent mt-[-4px]">A WILDKEEPER'S ADVENTURE</p>
+</div>
+<!-- User Level Info -->
+<div class="flex items-center space-x-3 mt-4 bg-black/40 px-4 py-2 rounded-full border border-gold-accent/30">
+<div class="w-10 h-10 rounded-full border-2 border-gold-accent flex items-center justify-center bg-jungle-green overflow-hidden">
+<span class="text-xl">🌿</span>
+</div>
+<div>
+<div class="text-xs font-title text-gold-accent uppercase">Apprentice Wildkeeper</div>
+<div class="flex items-center space-x-2">
+<span class="text-[10px] text-parchment-dark">Level 7</span>
+<div class="w-24 h-2 bg-black/50 rounded-full overflow-hidden">
+<div class="bg-green-500 h-full w-[48%]"></div>
+</div>
+<span class="text-[8px] text-parchment-dark">240 / 500 XP</span>
+</div>
+</div>
+</div>
+</header>
+<!-- END: Header Branding -->
+<!-- BEGIN: Stats Bar -->
+<div class="grid grid-cols-4 gap-2 text-center" data-purpose="stats-overview">
+<div class="bg-black/30 p-2 rounded border border-white/10">
+<div class="text-gold-accent text-lg">🌿 12</div>
+<div class="text-[8px] uppercase text-parchment-dark">Species</div>
+</div>
+<div class="bg-black/30 p-2 rounded border border-white/10">
+<div class="text-red-400 text-lg">❤️ 4</div>
+<div class="text-[8px] uppercase text-parchment-dark">Rescued</div>
+</div>
+<div class="bg-black/30 p-2 rounded border border-white/10">
+<div class="text-yellow-500 text-lg">🏆 3</div>
+<div class="text-[8px] uppercase text-parchment-dark">Achievements</div>
+</div>
+<div class="bg-black/30 p-2 rounded border border-white/10">
+<div class="text-parchment text-lg">⚙️ 240</div>
+<div class="text-[8px] uppercase text-parchment-dark">Points</div>
+</div>
+</div>
+<!-- END: Stats Bar -->
+<!-- BEGIN: Today's Quest -->
+<section class="parchment-bg rounded-lg p-3 relative ivy-corner" data-purpose="quest-card">
+<div class="flex items-start space-x-3">
+<div class="p-2 bg-gold-accent/20 rounded-full border border-gold-accent/50">🧭</div>
+<div class="flex-1">
+<h3 class="font-title text-sm font-bold border-b border-wood-brown/20 pb-1 mb-2">TODAY'S QUEST</h3>
+<p class="text-xs mb-2">Explore and identify 2 different plants</p>
+<div class="flex items-center space-x-2">
+<div class="flex-1 h-3 bg-black/10 rounded-full border border-wood-brown/10">
+<div class="bg-green-700 h-full w-1/2 rounded-full"></div>
+</div>
+<span class="text-[10px] font-bold">1 / 2</span>
+</div>
+<div class="text-[9px] mt-2 opacity-70">XP Reward: 50 XP</div>
+</div>
+</div>
+</section>
+<!-- END: Today's Quest -->
+<!-- BEGIN: Main Interaction Area -->
+<main class="flex-1 flex flex-col space-y-4" data-purpose="capture-area">
+<!-- Scanner Window -->
+<div class="flex-1 parchment-bg rounded-xl wood-frame p-6 flex flex-col items-center justify-center text-center relative overflow-hidden">
+<div class="absolute inset-4 border-2 border-dashed border-wood-brown/30 rounded-lg pointer-events-none"></div>
+<!-- Placeholder for Camera Icon -->
+<div class="mb-4">
+<svg class="w-20 h-20 text-wood-brown opacity-60" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+<path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+</svg>
+</div>
+<p class="font-title text-lg font-bold leading-tight">Tap to Capture<br/>or Upload Image</p>
+<p class="text-[10px] mt-2 italic opacity-60">EVERY DISCOVERY HELPS PROTECT ARANYA</p>
+</div>
+<!-- Action Buttons -->
+<div class="grid grid-cols-2 gap-4">
+<button class="btn-green rounded-lg py-3 px-2 flex flex-col items-center justify-center text-white active:translate-y-1 transition-all">
+<div class="flex items-center space-x-1 mb-1">
+<span>🔍</span>
+<span class="text-[10px] font-title font-bold tracking-tighter uppercase">Embark on Discovery</span>
+</div>
+<span class="text-[8px] opacity-80">Identify and learn about this plant</span>
+</button>
+<button class="btn-red rounded-lg py-3 px-2 flex flex-col items-center justify-center text-white active:translate-y-1 transition-all">
+<div class="flex items-center space-x-1 mb-1">
+<span>❤️</span>
+<span class="text-[10px] font-title font-bold tracking-tighter uppercase">Plant Rescue</span>
+</div>
+<span class="text-[8px] opacity-80">Assess health and unlock care tips</span>
+</button>
+</div>
+</main>
+<!-- END: Main Interaction Area -->
+<!-- BEGIN: Wildkeeper Journal Summary -->
+<section class="parchment-bg rounded-xl p-4 shadow-xl" data-purpose="journal-summary">
+<div class="flex justify-between items-center border-b border-wood-brown/20 pb-2 mb-4">
+<h3 class="font-title text-lg font-bold uppercase tracking-tight">Wildkeeper Journal</h3>
+<div class="text-[10px] bg-wood-brown text-parchment px-2 py-0.5 rounded">12 / 500 Found</div>
+</div>
+<div class="grid grid-cols-3 gap-3 mb-4">
+<!-- Recent Discovery 1 -->
+<div class="bg-white/40 p-1.5 rounded border border-wood-brown/10 text-center">
+<img alt="Sunflower" class="w-full aspect-square object-cover rounded mb-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmra0kxPQXeR8hK-xEqIBHIl11asuPc-SHneBVl7s61DLjiXmOfR2KG5vXXf1eC367U1kks0H_3wKOrFZHMBF3AqRXNN8MDf63qjjWalAVtVaz2WtMJQS1GbHvyeMNIhO2xVduMHhshJu-F36cjfcE2-RqkIqwUj-d0QlkQI87TZ4PoT4R0SEqM-6J9H1Ud84HfnjHhzR03Pzaf8jkt8ECijSQ1Ahg55c2TG6MnJo8KOuX0JkPaBNn-sp_xixHgc_D-1rD_hcmq0nP"/>
+<div class="text-[9px] font-bold">Sunflower</div>
+<div class="text-[7px] text-green-700">● Common</div>
+</div>
+<!-- Recent Discovery 2 -->
+<div class="bg-white/40 p-1.5 rounded border border-wood-brown/10 text-center">
+<img alt="Hibiscus" class="w-full aspect-square object-cover rounded mb-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkghDrPBFeW64P2yWBPdX8ODVaKad_KrBWJ1LHVdlFoDaqOYGNqSC9cJEPzAe0UCm9aMlbWvwU2Lw2WNVOKjWZ-OMe3k6opYlAINLbDQv_HGINauQyvvocMiJIEAuLtIFuo4OwCGOKKPs858TK0F7mPwv5k3oBWbLPDtz5nN1w9ec6bsaEGJMi8cqRcmEZxtla-zlSnwgbWRqS-oL3HYGfPg6jB_gFAs6DvZqckWo6QfWxLPv73w_cnjJ3-4eN0JEtByT0Z1aElZFj"/>
+<div class="text-[9px] font-bold">Hibiscus</div>
+<div class="text-[7px] text-green-700">● Common</div>
+</div>
+<!-- Recent Discovery 3 -->
+<div class="bg-white/40 p-1.5 rounded border border-wood-brown/10 text-center">
+<img alt="Aloe Vera" class="w-full aspect-square object-cover rounded mb-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZ4ieSXyfXqQWNm78qfHjGXcPOXLNPPdR-xklYDJcixK6QCgRYGfoHZ3fHUtRDFcWy0tXdlyiDP4vg4zcXgJiePx0uR-Vqhvg7U1r5XBJDcV77v2H68MzHSfhJuNJ3CSJT9d2HfxoPawlzpK9hPDC3aXTEy8FvBA2FKrT8pyUy1aCyp6TdbmcnSMQl-sz8TIPgZGkWH9fUAdEdtYosaa_FaSfBiMdR4ueoq0VjKj-6TSD6dqsArx8hhSa-rNJ1A9BYEAjlwLIejLYe"/>
+<div class="text-[9px] font-bold">Aloe Vera</div>
+<div class="text-[7px] text-purple-700">● Uncommon</div>
+</div>
+</div>
+<button class="w-full border-ornate bg-parchment-dark/50 py-2 text-[10px] font-title font-bold hover:bg-parchment-dark transition-colors">
+      📖 VIEW ALL JOURNAL
+    </button>
+</section>
+<!-- END: Wildkeeper Journal Summary -->
+<!-- BEGIN: Achievements Footer -->
+<section class="parchment-bg rounded-t-xl p-3 mt-auto" data-purpose="achievements-footer">
+<div class="text-[10px] font-title font-bold text-center mb-3 opacity-60">——— ACHIEVEMENTS ———</div>
+<div class="flex justify-between items-center overflow-x-auto space-x-4 px-2 no-scrollbar">
+<div class="flex-shrink-0 flex flex-col items-center">
+<div class="w-10 h-10 bg-gold-accent/20 rounded-full border border-gold-accent flex items-center justify-center text-xs">🌱</div>
+<span class="text-[7px] mt-1">First Discovery</span>
+</div>
+<div class="flex-shrink-0 flex flex-col items-center">
+<div class="w-10 h-10 bg-gold-accent/20 rounded-full border border-gold-accent flex items-center justify-center text-xs">💖</div>
+<span class="text-[7px] mt-1">Plant Rescuer</span>
+</div>
+<div class="flex-shrink-0 flex flex-col items-center">
+<div class="w-10 h-10 bg-gold-accent/20 rounded-full border border-gold-accent flex items-center justify-center text-xs">🍂</div>
+<span class="text-[7px] mt-1">Nature Observer</span>
+</div>
+<div class="flex-shrink-0 flex flex-col items-center">
+<div class="w-10 h-10 bg-gold-accent/20 rounded-full border border-gold-accent flex items-center justify-center text-xs">10</div>
+<span class="text-[7px] mt-1">10 Species Found</span>
+</div>
+<div class="flex-shrink-0 flex flex-col items-center">
+<div class="w-10 h-10 bg-gold-accent/20 rounded-full border border-gold-accent/50 flex items-center justify-center text-xs opacity-50">🔒</div>
+<span class="text-[7px] mt-1 opacity-50">View All</span>
+</div>
+</div>
+</section>
+<!-- END: Achievements Footer -->
+<!-- BEGIN: Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-jungle-dark/95 backdrop-blur-md border-t border-gold-accent/30 py-3 px-6 flex justify-between items-center z-50">
+<button class="flex flex-col items-center text-gold-accent">
+<span class="text-xl">🧭</span>
+<span class="text-[8px] font-title uppercase">Expedition</span>
+</button>
+<button class="flex flex-col items-center text-parchment opacity-60">
+<span class="text-xl">📖</span>
+<span class="text-[8px] font-title uppercase">Journal</span>
+</button>
+<div class="bg-gold-accent p-3 rounded-full -mt-10 border-4 border-jungle-dark shadow-2xl">
+<span class="text-2xl">📷</span>
+</div>
+<button class="flex flex-col items-center text-parchment opacity-60">
+<span class="text-xl">🏆</span>
+<span class="text-[8px] font-title uppercase">Badges</span>
+</button>
+<button class="flex flex-col items-center text-parchment opacity-60">
+<span class="text-xl">📊</span>
+<span class="text-[8px] font-title uppercase">Ranking</span>
+</button>
+</nav>
+<!-- END: Bottom Navigation -->
+<!-- Spacer for bottom nav -->
+<div class="h-20"></div>
+</body></html>

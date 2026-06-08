@@ -6,6 +6,10 @@ This folder contains a cost-conscious Modal + SWIFT pipeline for fine-tuning
 The dataset content is preserved. The converter only repackages each record into
 the chat/image format expected by SWIFT.
 
+Because the full `datasets/` tree may contain more images than this training
+file uses, the pipeline copies only images referenced by the prepared
+train/val/test JSONL files before uploading to Modal.
+
 ## 1. Install local tools
 
 ```powershell
@@ -21,6 +25,8 @@ modal secret create wandb-secret WANDB_API_KEY=your_wandb_key
 ```
 
 ## 2. Convert and split locally
+
+Run this from the repository root.
 
 ```powershell
 python training/convert_dataset.py `
@@ -42,21 +48,51 @@ training/prepared/test.jsonl
 training/prepared/manifest.json
 ```
 
+Then copy only the images referenced by those prepared files:
+
+```powershell
+python training/copy_prepared_images.py `
+  --prepared-dir training/prepared `
+  --source-root . `
+  --output-dir training/prepared
+```
+
+This writes referenced images under:
+
+```text
+training/prepared/datasets/...
+training/prepared/image_manifest.json
+```
+
+The converted JSONL points images at Modal paths such as:
+
+```text
+/data/datasets/plantclinic/images/frvnxc.jpg
+```
+
+So `training/prepared/datasets/...` must be uploaded to `/datasets` in the
+Modal data volume.
+
 ## 3. Upload data to Modal volumes
 
 ```powershell
 modal volume create --version=2 minicpmv46-plant-data
 modal volume create --version=2 minicpmv46-plant-checkpoints
 modal volume create --version=2 minicpmv46-hf-cache
-modal volume put minicpmv46-plant-data training/prepared/train.jsonl /train.jsonl
-modal volume put minicpmv46-plant-data training/prepared/val.jsonl /val.jsonl
-modal volume put minicpmv46-plant-data training/prepared/test.jsonl /test.jsonl
-modal volume put minicpmv46-plant-data training/prepared/manifest.json /manifest.json
-modal volume put minicpmv46-plant-data datasets /datasets
+
+$env:PYTHONIOENCODING="utf-8"
+python training/upload_prepared_to_modal.py --volume minicpmv46-plant-data
 ```
 
 Image upload can take a while the first time. Future runs reuse the Modal volume.
 Volume v2 is used because this dataset has hundreds of thousands of image files.
+The upload helper uses `modal volume put --force` for metadata and Modal's
+batch upload API for images. Images are uploaded in file batches with retries,
+existing remote files are detected before uploading, and progress is saved to
+`training/prepared/modal_upload_progress.json`.
+
+If you rerun the split or image-copy step, rerun the relevant `modal volume put`
+commands so Modal sees the updated files.
 
 ## 4. Smoke test
 
@@ -73,14 +109,23 @@ modal run training/modal_app.py::train --run-name plant-v46-4x-lora
 The training command uses:
 
 ```text
-GPU preference: L40S, fallback A100-40GB
+GPU_PREFERENCE="L40S"
+FALLBACK_GPU="A100-40GB"
+PRECISION="bf16"
 DOWNSAMPLE_MODE=4x
+attn_impl="sdpa"
 freeze_vit=false
-LoRA
-1 epoch
-learning_rate=1e-5
-checkpoint/eval every 1000 steps
-resume from latest checkpoint when available
+num_train_epochs=1
+learning_rate=2e-6
+lr_scheduler_type="cosine"
+warmup_ratio=0.03
+per_device_train_batch_size=8
+gradient_accumulation_steps=16
+logging_steps=10
+checkpoint_every_steps=350
+evaluation_strategy="steps"
+eval_every_steps=350
+resume_from_checkpoint="latest"
 ```
 
 ## 6. Evaluate saved checkpoints
@@ -124,3 +169,33 @@ modal volume get minicpmv46-plant-checkpoints /plant-v46-4x-lora/eval/metrics.js
 - Hugging Face cache lives in Modal volume `minicpmv46-hf-cache`.
 - To use W&B, set a Modal secret named `wandb-secret` with `WANDB_API_KEY`.
 - If W&B is not configured, training runs with `--report_to none`.
+
+## Full command sequence
+
+```powershell
+python training/convert_dataset.py `
+  --input plant_disease_training.jsonl `
+  --output-dir training/prepared `
+  --image-root . `
+  --image-prefix /data `
+  --val-size 5000 `
+  --test-size 2000 `
+  --seed 42
+
+python training/copy_prepared_images.py `
+  --prepared-dir training/prepared `
+  --source-root . `
+  --output-dir training/prepared
+
+modal volume create --version=2 minicpmv46-plant-data
+modal volume create --version=2 minicpmv46-plant-checkpoints
+modal volume create --version=2 minicpmv46-hf-cache
+
+$env:PYTHONIOENCODING="utf-8"
+python training/upload_prepared_to_modal.py --volume minicpmv46-plant-data
+
+modal run training/modal_app.py::train --run-name smoke-4x --max-steps 50
+modal run training/modal_app.py::train --run-name plant-v46-4x-lora
+modal run training/modal_app.py::generate_for_eval --run-name plant-v46-4x-lora --max-samples 300
+modal run training/modal_app.py::score_eval --run-name plant-v46-4x-lora --max-samples 300
+```
