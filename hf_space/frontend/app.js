@@ -17,7 +17,7 @@ imageInput.addEventListener("change", () => {
   if (!file) return;
   const objectUrl = URL.createObjectURL(file);
   previewImage.onload = () => {
-    previewWrap.style.setProperty("--preview-ratio", `${previewImage.naturalWidth} / ${previewImage.naturalHeight}`);
+    sizePreviewToImage();
     URL.revokeObjectURL(objectUrl);
   };
   previewImage.src = objectUrl;
@@ -47,11 +47,34 @@ clearImageBtn.addEventListener("click", (event) => {
   event.stopPropagation();
   imageInput.value = "";
   previewImage.removeAttribute("src");
-  previewWrap.style.removeProperty("--preview-ratio");
+  previewWrap.style.removeProperty("--preview-width");
+  previewWrap.style.removeProperty("--preview-height");
   dropZone.classList.remove("has-image");
   runState.textContent = "Ready";
   resultText.textContent = "Upload a plant image to begin.";
 });
+
+window.addEventListener("resize", () => {
+  if (dropZone.classList.contains("has-image") && previewImage.naturalWidth && previewImage.naturalHeight) {
+    sizePreviewToImage();
+  }
+});
+
+function sizePreviewToImage() {
+  const ratio = previewImage.naturalWidth / previewImage.naturalHeight;
+  const maxWidth = Math.min(dropZone.clientWidth * 0.92, 660);
+  const maxHeight = dropZone.clientHeight * 0.68;
+  let width = maxWidth;
+  let height = width / ratio;
+
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * ratio;
+  }
+
+  previewWrap.style.setProperty("--preview-width", `${Math.round(width)}px`);
+  previewWrap.style.setProperty("--preview-height", `${Math.round(height)}px`);
+}
 
 identifyBtn.addEventListener("click", () => runQuest("identify"));
 healthBtn.addEventListener("click", () => runQuest("health"));

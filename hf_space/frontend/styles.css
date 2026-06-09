@@ -192,29 +192,28 @@ input {
   left: 50%;
   top: 50%;
   display: none;
-  width: min(96%, 720px);
-  max-width: min(96%, calc(88% * var(--preview-ratio, 16 / 9)));
-  aspect-ratio: var(--preview-ratio, 16 / 9);
+  width: var(--preview-width, 420px);
+  height: var(--preview-height, 236px);
   transform: translate(-50%, -50%);
   z-index: 2;
   overflow: visible;
   pointer-events: auto;
   padding: 0;
-  border: 7px solid rgba(255, 236, 166, 0.98);
-  border-radius: 10px;
+  border: 0;
+  border-radius: 0;
   background: transparent;
-  box-shadow: 0 14px 18px rgba(46, 29, 8, 0.38);
+  box-shadow: none;
 }
 
 #previewImage {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  border: 0;
-  border-radius: 5px;
+  object-fit: fill;
+  border: 7px solid rgba(255, 236, 166, 0.98);
+  border-radius: 10px;
   background: transparent;
-  box-shadow: none;
+  box-shadow: 0 14px 18px rgba(46, 29, 8, 0.38);
 }
 
 .upload-drop.has-image .preview-wrap {
@@ -223,8 +222,8 @@ input {
 
 .clear-image {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: -18px;
+  right: -18px;
   display: none;
   place-items: center;
   width: clamp(32px, 3vw, 44px);
@@ -563,8 +562,8 @@ input {
   }
 
   .preview-wrap {
-    width: min(96%, 360px);
-    height: auto;
+    width: var(--preview-width, 320px);
+    height: var(--preview-height, 180px);
   }
 
   .action-row {
