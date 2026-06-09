@@ -38,6 +38,7 @@ DATA_ROOT = default_data_root()
 DB_PATH = Path(os.environ.get("ARANYA_DB_PATH", str(DATA_ROOT / "aranya.sqlite3")))
 UPLOAD_ROOT = DATA_ROOT / "uploads"
 AUDIO_ROOT = DATA_ROOT / "audio"
+DEFAULT_VOICE_SAMPLE = FRONTEND_DIR / "assets" / "voice_sample.mp3"
 
 PROMPT_VERSION = "aranya-v1"
 MODE_CONFIG = {
@@ -499,7 +500,6 @@ async def api_run(
     request: Request,
     mode: str = Form(...),
     image: UploadFile = File(...),
-    voice_sample: UploadFile | None = File(default=None),
     x_hf_username: str | None = Header(default=None),
     x_forwarded_user: str | None = Header(default=None),
 ) -> StreamingResponse:
@@ -507,9 +507,7 @@ async def api_run(
         raise HTTPException(status_code=400, detail="mode must be identify or health")
     run_id = uuid.uuid4().hex
     image_path, image_sha256 = save_upload(image, mode)
-    voice_sample_path = None
-    if voice_sample and voice_sample.filename:
-        voice_sample_path, _ = save_upload(voice_sample, f"{mode}-voice")
+    voice_sample_path = DEFAULT_VOICE_SAMPLE if DEFAULT_VOICE_SAMPLE.exists() else None
     username = detect_hf_username(request, x_hf_username, x_forwarded_user)
     worker = workers.get(mode) or build_worker(mode)
     workers[mode] = worker

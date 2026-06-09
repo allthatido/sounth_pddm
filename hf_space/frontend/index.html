@@ -8,95 +8,44 @@
   </head>
   <body>
     <main class="app-shell">
-      <div class="forest-vignette" aria-hidden="true"></div>
-      <div class="prop-backpack" aria-hidden="true"></div>
-      <div class="prop-quill" aria-hidden="true"></div>
-      <section class="hero-bar" aria-label="Wildkeeper status">
-        <div class="brand">
-          <img class="brand-logo" src="/frontend/assets/aranya-logo.png" alt="Aranya: A Wildkeeper's Adventure" />
-        </div>
-        <div class="profile-ribbon">
-          <div class="profile-medallion" aria-hidden="true">☘</div>
-          <span>Apprentice Wildkeeper</span>
-          <strong id="workerState">Scout camp waking...</strong>
-          <div class="xp-track"><i></i></div>
-        </div>
-        <div class="score-strip" aria-label="Progress stats">
-          <span><b>🌿</b><strong id="speciesCount">0</strong> Species Found</span>
-          <span><b>💖</b><strong id="rescueCount">0</strong> Plants Rescued</span>
-          <span><b>🏆</b><strong>3</strong> Achievements</span>
-          <span><b>✦</b><strong id="pointCount">0</strong> Wildkeeper Points</span>
-        </div>
-        <div class="top-tools" aria-label="Tools">
-          <button title="Messages">✉</button>
-          <button title="Guidebook">📖</button>
-          <button title="Settings">⚙</button>
-        </div>
-      </section>
+      <img class="brand-logo" src="/frontend/assets/aranya-logo.png" alt="Aranya: A Wildkeeper's Adventure" />
 
-      <section class="quest-grid">
-        <aside class="quest-panel">
-          <div class="hanging-compass" aria-hidden="true">✧</div>
-          <h2>Today's Quest</h2>
-          <p>Explore and identify <strong>2 different plants</strong></p>
-          <div class="quest-meter"><span style="width: 46%"></span></div>
-          <div class="quest-reward"><i>XP</i> Reward: 50 XP <b>1 / 2</b></div>
-          <nav class="nav-stack" aria-label="Wildkeeper sections">
-            <button class="nav-item active"><span>🧭</span><b>Expedition</b><small>Start your journey</small></button>
-            <button class="nav-item"><span>📖</span><b>Journal</b><small>View your discoveries</small></button>
-            <button class="nav-item"><span>🏆</span><b>Achievements</b><small>Unlock your badges</small></button>
-            <button class="nav-item"><span>▣</span><b>Ranking</b><small>See your progress</small></button>
-          </nav>
-        </aside>
-
-        <section class="expedition-board">
-          <div class="leaf-cluster top-left" aria-hidden="true"></div>
-          <div class="leaf-cluster bottom-right" aria-hidden="true"></div>
-          <p class="board-kicker">Every discovery helps protect Aranya</p>
-          <label class="upload-drop" id="dropZone">
-            <input id="imageInput" type="file" accept="image/*" />
-            <img id="previewImage" alt="" />
-            <span class="camera-glyph">📷</span>
-            <strong>Tap to Capture<br />or Upload Image</strong>
-          </label>
-          <label class="voice-line">
-            Voice sample
-            <input id="voiceInput" type="file" accept="audio/*" />
-          </label>
-          <div class="action-row">
-            <button id="identifyBtn" class="action-button discover">Embark on Discovery</button>
-            <button id="healthBtn" class="action-button rescue">Plant Rescue</button>
+      <section class="game-board" aria-label="Aranya expedition">
+        <section class="center-panel" aria-label="Plant upload and analysis">
+          <img class="panel-art" src="/frontend/assets/center.png" alt="" aria-hidden="true" />
+          <div class="center-content">
+            <label class="upload-drop" id="dropZone">
+              <input id="imageInput" type="file" accept="image/*" />
+              <img id="previewImage" alt="" />
+              <img class="upload-art" src="/frontend/assets/upload_image.png" alt="Upload image" />
+              <span class="upload-label">Upload Image</span>
+            </label>
+            <p id="runState" class="sr-status">Ready</p>
+            <p id="resultText" class="sr-status">Upload a plant image to begin.</p>
           </div>
-          <article class="journal-output">
-            <div class="journal-heading">
-              <h2>Wildkeeper Notes</h2>
-              <span id="runState">Ready</span>
-            </div>
-            <p id="resultText">Upload a plant image to begin.</p>
-            <audio id="voicePlayer" controls></audio>
-            <small>Voice narration is AI-generated from the streamed journal text.</small>
-          </article>
         </section>
 
-        <aside class="journal-panel">
-          <h2>Wildkeeper Journal</h2>
-          <p class="journal-progress-label">Species Found: <b id="journalFound">0</b> / 500</p>
-          <div class="journal-meter"><span id="journalMeter"></span></div>
-          <div id="recentList" class="recent-list"></div>
-          <button class="view-journal">📖 View All Journal</button>
+        <aside class="journal-panel" aria-label="Wildkeeper journal">
+          <img class="panel-art" src="/frontend/assets/journal.png" alt="" aria-hidden="true" />
+          <div class="journal-content">
+            <h2>Wildkeeper Journal</h2>
+            <p class="journal-progress-label">Species Found: <b id="journalFound">0</b> / 500</p>
+            <div class="journal-meter"><span id="journalMeter"></span></div>
+            <h3>Recent Discoveries</h3>
+            <div id="recentList" class="recent-list"></div>
+          </div>
         </aside>
       </section>
 
-      <section class="achievement-band" aria-label="Achievements">
-        <h2>Achievements</h2>
-        <div class="badge-row">
-          <span><i>🌿</i>First Discovery</span>
-          <span><i>💖</i>Plant Rescuer</span>
-          <span><i>❀</i>Nature Observer</span>
-          <span><i>🔍</i>Curious Explorer</span>
-          <span><i>10</i>10 Species Found</span>
-          <span><i>🪴</i>Care Expert</span>
-        </div>
+      <section class="action-row" aria-label="Analysis actions">
+        <button id="identifyBtn" class="action-button discover">
+          <img src="/frontend/assets/green_button_normalized.png" alt="" aria-hidden="true" />
+          <span><b>Discover</b><small>Identify and learn about this plant</small></span>
+        </button>
+        <button id="healthBtn" class="action-button rescue">
+          <img src="/frontend/assets/red_button_normalized.png" alt="" aria-hidden="true" />
+          <span><b>Rescue</b><small>Assess health and unlock care tips</small></span>
+        </button>
       </section>
     </main>
     <script src="/frontend/app.js"></script>

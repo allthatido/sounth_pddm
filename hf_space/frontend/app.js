@@ -1,19 +1,13 @@
 const imageInput = document.getElementById("imageInput");
-const voiceInput = document.getElementById("voiceInput");
 const previewImage = document.getElementById("previewImage");
 const dropZone = document.getElementById("dropZone");
 const identifyBtn = document.getElementById("identifyBtn");
 const healthBtn = document.getElementById("healthBtn");
 const resultText = document.getElementById("resultText");
 const runState = document.getElementById("runState");
-const workerState = document.getElementById("workerState");
-const speciesCount = document.getElementById("speciesCount");
-const rescueCount = document.getElementById("rescueCount");
-const pointCount = document.getElementById("pointCount");
 const journalMeter = document.getElementById("journalMeter");
 const journalFound = document.getElementById("journalFound");
 const recentList = document.getElementById("recentList");
-const voicePlayer = document.getElementById("voicePlayer");
 
 let currentAudioParts = [];
 
@@ -27,34 +21,22 @@ imageInput.addEventListener("change", () => {
 identifyBtn.addEventListener("click", () => runQuest("identify"));
 healthBtn.addEventListener("click", () => runQuest("health"));
 
-async function loadStatus() {
-  try {
-    const response = await fetch("/api/status");
-    const status = await response.json();
-    const readyCount = Object.values(status.workers || {}).filter((worker) => worker.native_ready).length;
-    workerState.textContent = readyCount ? `${readyCount} native worker ready` : "Demo scout mode";
-  } catch {
-    workerState.textContent = "Camp signal weak";
-  }
-}
-
 async function loadJournal() {
   try {
     const response = await fetch("/api/journal");
     const data = await response.json();
     const stats = data.stats || {};
-    speciesCount.textContent = stats.species || 0;
-    rescueCount.textContent = stats.rescues || 0;
-    pointCount.textContent = (stats.total || 0) * 20;
     journalFound.textContent = stats.species || 0;
     journalMeter.style.width = `${Math.min(100, (stats.total || 0) * 8)}%`;
-    recentList.innerHTML = "";
+
     const recent = data.recent || [];
+    recentList.innerHTML = "";
     if (!recent.length) {
       recentList.innerHTML = `<div class="recent-card"><strong>Undiscovered</strong><span>The journal is waiting.</span></div>`;
       return;
     }
-    for (const item of recent) {
+
+    for (const item of recent.slice(0, 6)) {
       const title = item.species_common || item.health_status || item.mode || "Discovery";
       const card = document.createElement("article");
       card.className = "recent-card";
@@ -79,19 +61,17 @@ async function runQuest(mode) {
   runState.textContent = mode === "identify" ? "Discovering" : "Rescuing";
   resultText.textContent = "";
   currentAudioParts = [];
-  voicePlayer.removeAttribute("src");
 
   const form = new FormData();
   form.append("mode", mode);
   form.append("image", image);
-  const voice = voiceInput.files?.[0];
-  if (voice) form.append("voice_sample", voice);
 
   try {
     const response = await fetch("/api/run", { method: "POST", body: form });
     if (!response.ok || !response.body) {
       throw new Error(`Request failed with ${response.status}`);
     }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -113,7 +93,6 @@ async function runQuest(mode) {
   } finally {
     identifyBtn.disabled = false;
     healthBtn.disabled = false;
-    await loadStatus();
     await loadJournal();
   }
 }
@@ -128,8 +107,6 @@ function handleEvent(event) {
   if (event.type === "audio_chunk") {
     const bytes = base64ToBytes(event.data);
     currentAudioParts.push(bytes);
-    const blob = new Blob(currentAudioParts, { type: event.mime_type || "audio/wav" });
-    voicePlayer.src = URL.createObjectURL(blob);
   }
   if (event.type === "record_saved") {
     runState.textContent = "Journal saved";
@@ -161,5 +138,4 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-loadStatus();
 loadJournal();
