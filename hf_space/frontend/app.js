@@ -1,11 +1,12 @@
 const imageInput = document.getElementById("imageInput");
 const previewImage = document.getElementById("previewImage");
+const previewWrap = document.getElementById("previewWrap");
 const dropZone = document.getElementById("dropZone");
+const clearImageBtn = document.getElementById("clearImageBtn");
 const identifyBtn = document.getElementById("identifyBtn");
 const healthBtn = document.getElementById("healthBtn");
 const resultText = document.getElementById("resultText");
 const runState = document.getElementById("runState");
-const journalMeter = document.getElementById("journalMeter");
 const journalFound = document.getElementById("journalFound");
 const recentList = document.getElementById("recentList");
 
@@ -14,8 +15,42 @@ let currentAudioParts = [];
 imageInput.addEventListener("change", () => {
   const file = imageInput.files?.[0];
   if (!file) return;
-  previewImage.src = URL.createObjectURL(file);
+  const objectUrl = URL.createObjectURL(file);
+  previewImage.onload = () => {
+    previewWrap.style.setProperty("--preview-ratio", `${previewImage.naturalWidth} / ${previewImage.naturalHeight}`);
+    URL.revokeObjectURL(objectUrl);
+  };
+  previewImage.src = objectUrl;
   dropZone.classList.add("has-image");
+});
+
+dropZone.addEventListener("click", (event) => {
+  if (dropZone.classList.contains("has-image")) {
+    return;
+  }
+  event.preventDefault();
+  imageInput.click();
+});
+
+dropZone.addEventListener("keydown", (event) => {
+  if (dropZone.classList.contains("has-image")) {
+    return;
+  }
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    imageInput.click();
+  }
+});
+
+clearImageBtn.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  imageInput.value = "";
+  previewImage.removeAttribute("src");
+  previewWrap.style.removeProperty("--preview-ratio");
+  dropZone.classList.remove("has-image");
+  runState.textContent = "Ready";
+  resultText.textContent = "Upload a plant image to begin.";
 });
 
 identifyBtn.addEventListener("click", () => runQuest("identify"));
@@ -27,7 +62,6 @@ async function loadJournal() {
     const data = await response.json();
     const stats = data.stats || {};
     journalFound.textContent = stats.species || 0;
-    journalMeter.style.width = `${Math.min(100, (stats.total || 0) * 8)}%`;
 
     const recent = data.recent || [];
     recentList.innerHTML = "";

@@ -4,50 +4,53 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Aranya: A Wildkeeper's Adventure</title>
-    <link rel="stylesheet" href="/frontend/styles.css" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=20260609-stage-center-1" />
   </head>
   <body>
     <main class="app-shell">
       <img class="brand-logo" src="/frontend/assets/aranya-logo.png" alt="Aranya: A Wildkeeper's Adventure" />
 
       <section class="game-board" aria-label="Aranya expedition">
-        <section class="center-panel" aria-label="Plant upload and analysis">
-          <img class="panel-art" src="/frontend/assets/center.png" alt="" aria-hidden="true" />
-          <div class="center-content">
-            <label class="upload-drop" id="dropZone">
-              <input id="imageInput" type="file" accept="image/*" />
-              <img id="previewImage" alt="" />
-              <img class="upload-art" src="/frontend/assets/upload_image.png" alt="Upload image" />
-              <span class="upload-label">Upload Image</span>
-            </label>
-            <p id="runState" class="sr-status">Ready</p>
-            <p id="resultText" class="sr-status">Upload a plant image to begin.</p>
-          </div>
-        </section>
+        <div class="expedition-column">
+          <section class="center-panel" aria-label="Plant upload and analysis">
+            <img class="panel-art" src="/frontend/assets/center.png" alt="" aria-hidden="true" />
+            <div class="center-content">
+              <div class="upload-drop" id="dropZone" role="button" tabindex="0" aria-label="Upload plant image">
+                <span class="preview-wrap" id="previewWrap">
+                  <img id="previewImage" alt="" />
+                  <button id="clearImageBtn" class="clear-image" type="button" aria-label="Remove uploaded image">×</button>
+                </span>
+                <img class="upload-art" src="/frontend/assets/upload_image.png" alt="Upload image" />
+                <span class="upload-label">Upload Image</span>
+              </div>
+              <input id="imageInput" class="file-input" type="file" accept="image/*" />
+              <p id="runState" class="sr-status">Ready</p>
+              <p id="resultText" class="sr-status">Upload a plant image to begin.</p>
+            </div>
+          </section>
+
+          <section class="action-row" aria-label="Analysis actions">
+            <button id="identifyBtn" class="action-button discover">
+              <img src="/frontend/assets/green_button_normalized.png" alt="" aria-hidden="true" />
+              <span><b>Discover</b><small>Identify and learn about this plant</small></span>
+            </button>
+            <button id="healthBtn" class="action-button rescue">
+              <img src="/frontend/assets/red_button_normalized.png" alt="" aria-hidden="true" />
+              <span><b>Rescue</b><small>Assess health and unlock care tips</small></span>
+            </button>
+          </section>
+        </div>
 
         <aside class="journal-panel" aria-label="Wildkeeper journal">
           <img class="panel-art" src="/frontend/assets/journal.png" alt="" aria-hidden="true" />
           <div class="journal-content">
             <h2>Wildkeeper Journal</h2>
             <p class="journal-progress-label">Species Found: <b id="journalFound">0</b> / 500</p>
-            <div class="journal-meter"><span id="journalMeter"></span></div>
-            <h3>Recent Discoveries</h3>
             <div id="recentList" class="recent-list"></div>
           </div>
         </aside>
       </section>
-
-      <section class="action-row" aria-label="Analysis actions">
-        <button id="identifyBtn" class="action-button discover">
-          <img src="/frontend/assets/green_button_normalized.png" alt="" aria-hidden="true" />
-          <span><b>Discover</b><small>Identify and learn about this plant</small></span>
-        </button>
-        <button id="healthBtn" class="action-button rescue">
-          <img src="/frontend/assets/red_button_normalized.png" alt="" aria-hidden="true" />
-          <span><b>Rescue</b><small>Assess health and unlock care tips</small></span>
-        </button>
-      </section>
     </main>
-    <script src="/frontend/app.js"></script>
+    <script src="/frontend/app.js?v=20260609-stage-center-1"></script>
   </body>
 </html>

@@ -433,7 +433,10 @@ app = gr.Server(lifespan=lifespan)
 
 @app.get("/")
 async def index() -> HTMLResponse:
-    return HTMLResponse((FRONTEND_DIR / "index.html").read_text(encoding="utf-8"))
+    return HTMLResponse(
+        (FRONTEND_DIR / "index.html").read_text(encoding="utf-8"),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/frontend/{path:path}")
@@ -441,7 +444,7 @@ async def frontend_asset(path: str) -> FileResponse:
     target = FRONTEND_DIR / path
     if not target.exists() or not target.is_file():
         raise HTTPException(status_code=404, detail="Asset not found")
-    return FileResponse(target)
+    return FileResponse(target, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/status")
