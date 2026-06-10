@@ -59,7 +59,7 @@ defaults:
 - `TTS_BALANCED_TEXT_DELAY_MS`: default `600`.
 - `TTS_AUDIO_PREBUFFER_CHUNKS`: default `3`.
 - `TTS_AUDIO_PREBUFFER_MAX_MS`: default `2200`.
-- `TTS_AUDIO_PLAYBACK_RATE`: default `0.92`; slightly slows streamed playback so the next TTS chunk has more time to synthesize.
+- `TTS_AUDIO_PLAYBACK_RATE`: default `0.95`; slightly slows streamed playback so the next TTS chunk has more time to synthesize.
 - `TTS_MIN_SENTENCE_CHARS`: default `32`.
 - `TTS_MIN_PHRASE_CHARS`: default `45`.
 - `TTS_LONG_SENTENCE_PHRASE_CHARS`: default `95`.

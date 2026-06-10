@@ -4,11 +4,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Aranya: A Wildkeeper's Adventure</title>
-    <link rel="stylesheet" href="/frontend/styles.css?v=20260609-streaming-llm-1" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=20260610-stats-counter-8" />
   </head>
   <body>
     <main class="app-shell">
       <img class="brand-logo" src="/frontend/assets/aranya-logo.png" alt="Aranya: A Wildkeeper's Adventure" />
+      <section class="stats-counter" aria-label="Wildkeeper progress">
+        <img src="/frontend/assets/stats_count.png" alt="" aria-hidden="true" />
+        <p>
+          <span><b id="speciesFoundCount">0</b> Species Found</span>
+          <span><b id="plantsRescuedCount">0</b> Plants Rescued</span>
+        </p>
+      </section>
 
       <section class="game-board" aria-label="Aranya expedition">
         <div class="expedition-column">
@@ -52,6 +59,6 @@
         </aside>
       </section>
     </main>
-    <script src="/frontend/app.js?v=20260609-streaming-llm-1"></script>
+    <script src="/frontend/app.js?v=20260610-stats-counter-8"></script>
   </body>
 </html>

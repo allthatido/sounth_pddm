@@ -10,6 +10,8 @@ const runState = document.getElementById("runState");
 const journalFound = document.getElementById("journalFound");
 const journalText = document.getElementById("journalText");
 const imageLoader = document.getElementById("imageLoader");
+const speciesFoundCount = document.getElementById("speciesFoundCount");
+const plantsRescuedCount = document.getElementById("plantsRescuedCount");
 
 let isRunning = false;
 let hasTextDelta = false;
@@ -102,9 +104,15 @@ async function loadJournalStats() {
     const response = await fetch("/api/journal");
     const data = await response.json();
     const stats = data.stats || {};
-    journalFound.textContent = stats.species || 0;
+    const species = stats.species || 0;
+    const rescues = stats.rescues || 0;
+    journalFound.textContent = species;
+    speciesFoundCount.textContent = species;
+    plantsRescuedCount.textContent = rescues;
   } catch {
     journalFound.textContent = "0";
+    speciesFoundCount.textContent = "0";
+    plantsRescuedCount.textContent = "0";
   }
 }
 

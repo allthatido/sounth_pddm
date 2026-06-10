@@ -130,7 +130,7 @@ MODE_CONFIG = {
         "mmproj_file_env": "IDENTIFY_MMPROJ_FILE",
         "prompt": (
             "You are Aranya, a careful wildkeeper botanist. Identify the plant in this image. "
-            "Write a short field-journal answer in natural spoken prose."
+            "Write a field-journal answer in natural spoken prose."
         ),
     },
     "health": {
