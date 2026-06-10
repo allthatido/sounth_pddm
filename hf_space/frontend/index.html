@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Aranya: A Wildkeeper's Adventure</title>
-    <link rel="stylesheet" href="/frontend/styles.css?v=20260609-preview-exact-box-1" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=20260609-streaming-llm-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -18,7 +18,8 @@
               <div class="upload-drop" id="dropZone" role="button" tabindex="0" aria-label="Upload plant image">
                 <span class="preview-wrap" id="previewWrap">
                   <img id="previewImage" alt="" />
-                  <button id="clearImageBtn" class="clear-image" type="button" aria-label="Remove uploaded image">×</button>
+                  <span id="imageLoader" class="image-loader" aria-hidden="true"></span>
+                  <button id="clearImageBtn" class="clear-image" type="button" aria-label="Remove uploaded image">&times;</button>
                 </span>
                 <img class="upload-art" src="/frontend/assets/upload_image.png" alt="Upload image" />
                 <span class="upload-label">Upload Image</span>
@@ -46,11 +47,11 @@
           <div class="journal-content">
             <h2>Wildkeeper Journal</h2>
             <p class="journal-progress-label">Species Found: <b id="journalFound">0</b> / 500</p>
-            <div id="recentList" class="recent-list"></div>
+            <div id="journalText" class="journal-text" aria-live="polite">Upload a plant image to begin.</div>
           </div>
         </aside>
       </section>
     </main>
-    <script src="/frontend/app.js?v=20260609-preview-exact-box-1"></script>
+    <script src="/frontend/app.js?v=20260609-streaming-llm-1"></script>
   </body>
 </html>

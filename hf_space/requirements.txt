@@ -4,3 +4,8 @@ python-multipart>=0.0.20
 pillow>=10.0
 numpy>=1.26
 soundfile>=0.12
+imageio-ffmpeg>=0.5
+huggingface_hub>=0.24
+llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.28-cu132/llama_cpp_python-0.3.28-py3-none-linux_x86_64.whl ; platform_system == "Linux"
+llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.28-cu132/llama_cpp_python-0.3.28-py3-none-win_amd64.whl ; platform_system == "Windows"
+cmake>=3.26

@@ -2,9 +2,11 @@
 disease_batches
 datasets
 data_processing_scripts
-training/prepared
+training/prepared*
 __pycache__/
 bkpup
 plant_disease_training.jsonl
 sa_key.json
 *.jsonl
+hf_space/VoxCPM.cpp/
+hf_space/data/

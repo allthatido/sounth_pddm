@@ -175,6 +175,11 @@ input {
   cursor: default;
 }
 
+.upload-drop.is-disabled {
+  cursor: wait;
+  pointer-events: none;
+}
+
 .file-input {
   position: absolute;
   width: 1px;
@@ -216,6 +221,37 @@ input {
   box-shadow: 0 14px 18px rgba(46, 29, 8, 0.38);
 }
 
+.image-loader {
+  position: absolute;
+  inset: 7px;
+  display: none;
+  place-items: center;
+  z-index: 12;
+  border-radius: 10px;
+  background: rgba(29, 20, 8, 0.38);
+  pointer-events: none;
+}
+
+.image-loader::before {
+  content: "";
+  width: clamp(34px, 4vw, 54px);
+  height: clamp(34px, 4vw, 54px);
+  border: 4px solid rgba(255, 239, 184, 0.35);
+  border-top-color: #fff4bd;
+  border-radius: 50%;
+  animation: aranya-spin 0.85s linear infinite;
+}
+
+.upload-drop.is-loading .image-loader {
+  display: grid;
+}
+
+@keyframes aranya-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .upload-drop.has-image .preview-wrap {
   display: block;
 }
@@ -242,6 +278,10 @@ input {
 
 .upload-drop.has-image .clear-image {
   display: grid;
+}
+
+.upload-drop.is-loading .clear-image {
+  display: none;
 }
 
 .upload-art {
@@ -307,7 +347,7 @@ input {
   height: 66%;
   transform: translateX(-50%);
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: clamp(6px, 0.8dvh, 11px);
   color: var(--ink);
   background: transparent;
@@ -334,48 +374,27 @@ input {
   text-overflow: ellipsis;
 }
 
-.recent-list {
+.journal-text {
   min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(0, 1fr);
-  gap: clamp(7px, 0.8vw, 12px);
-  padding: 0 2% 2%;
-  overflow: hidden;
-}
-
-.recent-card {
-  min-width: 0;
-  min-height: 0;
-  padding: clamp(4px, 0.6dvh, 8px);
-  border: 0;
-  border-radius: 0;
+  padding: clamp(8px, 1.2dvh, 14px) 8% 4% 5%;
+  overflow: auto;
   color: #2f2211;
   background: transparent;
-  box-shadow: none;
-  overflow: hidden;
+  font-size: clamp(15px, 1.75dvh, 20px);
+  line-height: 1.58;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-.recent-card strong,
-.recent-card span {
-  display: block;
-  padding: 3px 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: rgba(251, 235, 188, 0.78);
-  background: transparent;
-  border-radius: 4px;
+.journal-text.is-waiting::after {
+  content: "|";
+  animation: aranya-blink 0.75s steps(1) infinite;
 }
 
-.recent-card strong {
-  font-size: clamp(11px, 0.9vw, 14px);
-}
-
-.recent-card span {
-  margin-top: 6px;
-  color: #735320;
-  font-size: clamp(10px, 0.75vw, 13px);
+@keyframes aranya-blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 .action-row {
