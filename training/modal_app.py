@@ -9,6 +9,9 @@ import modal
 APP_NAME = "minicpmv46-plant-training"
 
 DATA_VOL = modal.Volume.from_name("minicpmv46-plant-data", create_if_missing=True)
+PLANT_ID_DATA_VOL = modal.Volume.from_name(
+    "minicpmv46-plant-id-data", create_if_missing=True
+)
 CKPT_VOL = modal.Volume.from_name("minicpmv46-plant-checkpoints", create_if_missing=True)
 HF_VOL = modal.Volume.from_name("minicpmv46-hf-cache", create_if_missing=True)
 
@@ -67,6 +70,11 @@ def latest_checkpoint(run_name: str) -> str | None:
         ),
     )
     return str(checkpoints[-1]) if checkpoints else None
+
+
+def checkpoint_step(path: Path) -> int:
+    suffix = path.name.split("-")[-1]
+    return int(suffix) if suffix.isdigit() else -1
 
 
 def model_cache_env() -> dict[str, str]:
@@ -134,10 +142,11 @@ def train(
     per_device_train_batch_size: int = 8,
     gradient_accumulation_steps: int = 16,
     logging_steps: int = 10,
-    checkpoint_every_steps: int = 350,
+    checkpoint_every_steps: int = 100,
     eval_steps: int = 350,
     evaluation_strategy: str = "steps",
     attn_impl: str = "sdpa",
+    num_train_epochs: int = 1,
 ) -> None:
     output_dir = CKPT_DIR / run_name
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -183,7 +192,7 @@ def train(
         "--lr_scheduler_type",
         lr_scheduler_type,
         "--num_train_epochs",
-        "1",
+        str(num_train_epochs),
         "--warmup_ratio",
         "0.03",
         "--logging_steps",
@@ -219,14 +228,136 @@ def train(
         HF_VOL.commit()
 
 
+@app.function(
+    gpu=["L40S", "A100-40GB"],
+    timeout=24 * 60 * 60,
+    volumes={DATA_DIR: PLANT_ID_DATA_VOL, CKPT_DIR: CKPT_VOL, HF_DIR: HF_VOL},
+    secrets=[
+        modal.Secret.from_name("huggingface-secret"),
+    ],
+)
+def train_plant_id(
+    run_name: str = "plant-id-v46-4x-lora",
+    train_file: str = "/data/train.jsonl",
+    val_file: str = "/data/val.jsonl",
+    max_steps: int = -1,
+    learning_rate: str = "2e-6",
+    lr_scheduler_type: str = "cosine",
+    lora_rank: int = 16,
+    lora_alpha: int = 32,
+    per_device_train_batch_size: int = 8,
+    gradient_accumulation_steps: int = 16,
+    logging_steps: int = 10,
+    checkpoint_every_steps: int = 100,
+    eval_steps: int = 100,
+    evaluation_strategy: str = "steps",
+    attn_impl: str = "sdpa",
+    num_train_epochs: int = 2,
+) -> None:
+    output_dir = CKPT_DIR / run_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    report_to = "wandb" if os.environ.get("WANDB_API_KEY") else "none"
+    resume = latest_checkpoint(run_name)
+
+    env = {
+        **model_cache_env(),
+        "DOWNSAMPLE_MODE": "4x",
+        "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+    }
+
+    cmd = [
+        "swift",
+        "sft",
+        "--model",
+        MODEL_NAME,
+        "--model_type",
+        "minicpmv4_6",
+        "--template",
+        "minicpmv4_6",
+        "--dataset",
+        train_file,
+        "--val_dataset",
+        val_file,
+        "--tuner_type",
+        "lora",
+        "--torch_dtype",
+        "bfloat16",
+        "--freeze_vit",
+        "false",
+        "--packing",
+        "false",
+        "--max_length",
+        "4096",
+        "--per_device_train_batch_size",
+        str(per_device_train_batch_size),
+        "--gradient_accumulation_steps",
+        str(gradient_accumulation_steps),
+        "--learning_rate",
+        learning_rate,
+        "--lr_scheduler_type",
+        lr_scheduler_type,
+        "--num_train_epochs",
+        str(num_train_epochs),
+        "--warmup_ratio",
+        "0.03",
+        "--logging_steps",
+        str(logging_steps),
+        "--eval_strategy",
+        evaluation_strategy,
+        "--save_steps",
+        str(checkpoint_every_steps),
+        "--eval_steps",
+        str(eval_steps),
+        "--save_total_limit",
+        "10",
+        "--attn_impl",
+        attn_impl,
+        "--lora_rank",
+        str(lora_rank),
+        "--lora_alpha",
+        str(lora_alpha),
+        "--output_dir",
+        str(output_dir),
+        "--report_to",
+        report_to,
+    ]
+    if max_steps > 0:
+        cmd.extend(["--max_steps", str(max_steps)])
+    if resume:
+        cmd.extend(["--resume_from_checkpoint", resume])
+
+    try:
+        run(cmd, env=env)
+    finally:
+        CKPT_VOL.commit()
+        HF_VOL.commit()
+
+
+@app.local_entrypoint()
+def launch_plant_id_training(
+    run_name: str = "plant-id-v46-4x-lora",
+    num_train_epochs: int = 2,
+) -> None:
+    call = train_plant_id.spawn(
+        run_name=run_name,
+        num_train_epochs=num_train_epochs,
+    )
+    print(f"spawned plant-id training call: {call.object_id}")
+    print(f"dashboard: {call.get_dashboard_url()}")
+
+
 @app.function(volumes={CKPT_DIR: CKPT_VOL}, timeout=10 * 60)
 def list_checkpoints(run_name: str = "plant-v46-4x-lora") -> None:
     run_dir = CKPT_DIR / run_name
     if not run_dir.exists():
         print(f"no run directory: {run_dir}")
         return
-    for path in sorted(run_dir.glob("checkpoint-*")):
+    paths = sorted(run_dir.glob("checkpoint-*"), key=checkpoint_step)
+    for path in paths:
         print(path)
+    latest = str(paths[-1]) if paths else None
+    print(f"latest: {latest}")
 
 
 @app.function(

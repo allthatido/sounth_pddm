@@ -170,6 +170,85 @@ modal volume get minicpmv46-plant-checkpoints /plant-v46-4x-lora/eval/metrics.js
 - To use W&B, set a Modal secret named `wandb-secret` with `WANDB_API_KEY`.
 - If W&B is not configured, training runs with `--report_to none`.
 
+## Plant-ID Data Preparation
+
+Use this flow for `plant_id_training.jsonl`. It writes to
+`training/prepared_plant_id/` and uploads to `minicpmv46-plant-id-data`, so it
+does not touch the active plant disease training data or checkpoint volumes.
+
+Convert and split plant-id examples:
+
+```powershell
+python training/convert_dataset.py `
+  --input plant_id_training.jsonl `
+  --output-dir training/prepared_plant_id `
+  --image-root . `
+  --image-prefix /data `
+  --val-size 3000 `
+  --test-size 1000 `
+  --seed 42
+```
+
+Copy only the referenced plant-id images:
+
+```powershell
+python training/copy_prepared_images.py `
+  --prepared-dir training/prepared_plant_id `
+  --source-root . `
+  --output-dir training/prepared_plant_id
+```
+
+Resize copied images in-place to `448x448`:
+
+```powershell
+python training/resize_prepared_images.py `
+  --image-root training/prepared_plant_id/datasets `
+  --size 448 `
+  --manifest training/prepared_plant_id/resize_manifest.json
+```
+
+Create the dedicated Modal data volume and upload:
+
+```powershell
+modal volume create --version=2 minicpmv46-plant-id-data
+
+$env:PYTHONIOENCODING="utf-8"
+python training/upload_prepared_to_modal.py `
+  --volume minicpmv46-plant-id-data `
+  --prepared-dir training/prepared_plant_id `
+  --progress-file training/prepared_plant_id/modal_upload_progress.json
+```
+
+Validate before upload:
+
+```powershell
+Get-Content training/prepared_plant_id/manifest.json
+Get-Content training/prepared_plant_id/image_manifest.json
+Get-Content training/prepared_plant_id/resize_manifest.json
+```
+
+Expected values:
+
+```text
+bad_json_records: 0
+image_manifest.missing: 0
+resize_manifest.failed: 0
+resize_manifest.target_size: 448x448
+```
+
+Start the full plant-id training run:
+
+```powershell
+$env:PYTHONIOENCODING="utf-8"
+modal run training/modal_app.py::launch_plant_id_training --run-name plant-id-v46-4x-lora --num-train-epochs 2
+```
+
+The plant-id training function mounts `minicpmv46-plant-id-data`, writes
+checkpoints under `/checkpoints/plant-id-v46-4x-lora`, and defaults to
+`num_train_epochs=2` with checkpoint/eval every 100 steps. Modal caps this
+function at 24 hours; rerun the same command to resume from the latest
+checkpoint if it times out.
+
 ## Full command sequence
 
 ```powershell
