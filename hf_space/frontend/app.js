@@ -7,13 +7,40 @@ const identifyBtn = document.getElementById("identifyBtn");
 const healthBtn = document.getElementById("healthBtn");
 const resultText = document.getElementById("resultText");
 const runState = document.getElementById("runState");
-const journalFound = document.getElementById("journalFound");
 const journalText = document.getElementById("journalText");
 const imageLoader = document.getElementById("imageLoader");
 const speciesFoundCount = document.getElementById("speciesFoundCount");
 const plantsRescuedCount = document.getElementById("plantsRescuedCount");
+const nameForm = document.getElementById("nameForm");
+const nameInput = document.getElementById("nameInput");
+const nameSaveBtn = document.getElementById("nameSaveBtn");
+const namePlate = document.getElementById("namePlate");
+const leaderboardBtn = document.getElementById("leaderboardBtn");
+const leaderboardModal = document.getElementById("leaderboardModal");
+const leaderboardCloseBtn = document.getElementById("leaderboardCloseBtn");
+const recordsTab = document.getElementById("recordsTab");
+const rankingsTab = document.getElementById("rankingsTab");
+const recordsPanel = document.getElementById("recordsPanel");
+const rankingsPanel = document.getElementById("rankingsPanel");
+const recordDetailPanel = document.getElementById("recordDetailPanel");
+const recordBackBtn = document.getElementById("recordBackBtn");
+const recordDetailImage = document.getElementById("recordDetailImage");
+const recordDetailMode = document.getElementById("recordDetailMode");
+const recordDetailTitle = document.getElementById("recordDetailTitle");
+const recordDetailDate = document.getElementById("recordDetailDate");
+const recordDetailText = document.getElementById("recordDetailText");
+const myRank = document.getElementById("myRank");
+const myTotal = document.getElementById("myTotal");
+const myDiscover = document.getElementById("myDiscover");
+const myRescue = document.getElementById("myRescue");
+const myLastActivity = document.getElementById("myLastActivity");
+const recentRuns = document.getElementById("recentRuns");
+const leaderboardList = document.getElementById("leaderboardList");
+
+const LEADERBOARD_STORAGE_KEY = "aranya_hf_leaderboard_id";
 
 let isRunning = false;
+let leaderboardIdentity = loadLeaderboardIdentity();
 let hasTextDelta = false;
 let audioQueue = [];
 let audioPlaying = false;
@@ -25,11 +52,78 @@ let audioIdleResolvers = [];
 let audioStarted = false;
 let audioStreamDone = false;
 let prebufferTimer = null;
+let recentRecordCache = new Map();
 
 let balancedTextDelayMs = 600;
 let audioPrebufferChunks = 2;
 let audioPrebufferMaxMs = 2200;
 let audioPlaybackRate = 0.92;
+
+function loadLeaderboardIdentity() {
+  const fallback = createLeaderboardIdentity();
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(LEADERBOARD_STORAGE_KEY) || "null");
+    if (stored && typeof stored === "object" && typeof stored.id === "string" && stored.id.trim()) {
+      return {
+        version: 1,
+        id: stored.id.trim(),
+        name: typeof stored.name === "string" ? stored.name.trim().slice(0, 80) : "",
+        created_at: typeof stored.created_at === "string" ? stored.created_at : fallback.created_at,
+      };
+    }
+  } catch {
+    // Replace malformed identity data below.
+  }
+  saveLeaderboardIdentity(fallback);
+  return fallback;
+}
+
+function createLeaderboardIdentity() {
+  const bytes = new Uint8Array(16);
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  const id = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  return {
+    version: 1,
+    id,
+    name: "",
+    created_at: new Date().toISOString(),
+  };
+}
+
+function saveLeaderboardIdentity(identity) {
+  window.localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(identity));
+}
+
+function hasSavedName() {
+  return Boolean(leaderboardIdentity.name && leaderboardIdentity.name.trim());
+}
+
+function syncNameUi() {
+  if (hasSavedName()) {
+    nameForm.hidden = true;
+    namePlate.hidden = false;
+    namePlate.textContent = leaderboardIdentity.name;
+  } else {
+    nameForm.hidden = false;
+    namePlate.hidden = true;
+    nameInput.value = "";
+  }
+  updateActionAvailability();
+}
+
+function updateActionAvailability() {
+  const disabled = isRunning || !hasSavedName();
+  identifyBtn.disabled = disabled;
+  healthBtn.disabled = disabled;
+  nameInput.disabled = isRunning;
+  nameSaveBtn.disabled = isRunning;
+}
 
 imageInput.addEventListener("change", () => {
   const file = imageInput.files?.[0];
@@ -80,6 +174,53 @@ window.addEventListener("resize", () => {
   }
 });
 
+nameForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = nameInput.value.trim().replace(/\s+/g, " ").slice(0, 80);
+  if (!name) {
+    nameInput.focus();
+    runState.textContent = "Name needed";
+    return;
+  }
+  leaderboardIdentity = { ...leaderboardIdentity, name };
+  saveLeaderboardIdentity(leaderboardIdentity);
+  syncNameUi();
+  runState.textContent = "Ready";
+  setJournalText("Upload a plant image to begin.");
+});
+
+leaderboardBtn.addEventListener("click", () => {
+  openLeaderboard();
+});
+
+leaderboardCloseBtn.addEventListener("click", () => {
+  closeLeaderboard();
+});
+
+leaderboardModal.addEventListener("click", (event) => {
+  if (event.target?.hasAttribute("data-close-leaderboard")) {
+    closeLeaderboard();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !leaderboardModal.hidden) {
+    closeLeaderboard();
+  }
+});
+
+recordsTab.addEventListener("click", () => {
+  setLeaderboardTab("records");
+});
+
+rankingsTab.addEventListener("click", () => {
+  setLeaderboardTab("rankings");
+});
+
+recordBackBtn.addEventListener("click", () => {
+  setLeaderboardTab("records");
+});
+
 function sizePreviewToImage() {
   const ratio = previewImage.naturalWidth / previewImage.naturalHeight;
   const maxWidth = Math.min(dropZone.clientWidth * 0.92, 660);
@@ -106,17 +247,186 @@ async function loadJournalStats() {
     const stats = data.stats || {};
     const species = stats.species || 0;
     const rescues = stats.rescues || 0;
-    journalFound.textContent = species;
     speciesFoundCount.textContent = species;
     plantsRescuedCount.textContent = rescues;
   } catch {
-    journalFound.textContent = "0";
     speciesFoundCount.textContent = "0";
     plantsRescuedCount.textContent = "0";
   }
 }
 
+async function openLeaderboard() {
+  leaderboardModal.hidden = false;
+  setLeaderboardTab("records");
+  await loadLeaderboard();
+}
+
+function closeLeaderboard() {
+  leaderboardModal.hidden = true;
+}
+
+function setLeaderboardTab(tab) {
+  const showRecords = tab === "records";
+  const showRankings = tab === "rankings";
+  const showDetail = tab === "detail";
+  recordsTab.classList.toggle("is-active", showRecords || showDetail);
+  rankingsTab.classList.toggle("is-active", showRankings);
+  recordsTab.setAttribute("aria-selected", String(showRecords));
+  rankingsTab.setAttribute("aria-selected", String(showRankings));
+  recordsPanel.classList.toggle("is-active", showRecords);
+  rankingsPanel.classList.toggle("is-active", showRankings);
+  recordDetailPanel.classList.toggle("is-active", showDetail);
+  recordsPanel.hidden = !showRecords;
+  rankingsPanel.hidden = !showRankings;
+  recordDetailPanel.hidden = !showDetail;
+}
+
+async function loadLeaderboard() {
+  renderLeaderboardLoading();
+  try {
+    const params = new URLSearchParams({ leaderboard_id: leaderboardIdentity.id });
+    const response = await fetch(`/api/leaderboard?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`Leaderboard failed with ${response.status}`);
+    }
+    renderLeaderboard(await response.json());
+  } catch {
+    myLastActivity.textContent = "Records are unavailable right now.";
+    recentRuns.replaceChildren();
+    leaderboardList.replaceChildren(emptyListItem("Leaderboard unavailable."));
+  }
+}
+
+function renderLeaderboardLoading() {
+  recentRecordCache = new Map();
+  myRank.textContent = "-";
+  myTotal.textContent = "0";
+  myDiscover.textContent = "0";
+  myRescue.textContent = "0";
+  myLastActivity.textContent = "Loading records...";
+  recentRuns.replaceChildren();
+  leaderboardList.replaceChildren(emptyListItem("Loading leaderboard..."));
+}
+
+function renderLeaderboard(data) {
+  const me = data.me || {};
+  myRank.textContent = me.rank ? `#${me.rank}` : "-";
+  myTotal.textContent = me.total || 0;
+  myDiscover.textContent = me.discover || 0;
+  myRescue.textContent = me.rescue || 0;
+  myLastActivity.textContent = me.last_activity ? `Last activity ${formatDate(me.last_activity)}` : "No completed requests yet.";
+
+  const recentItems = (data.recent || []).map((run) => {
+    recentRecordCache.set(run.id, run);
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.className = "record-row-button";
+    button.type = "button";
+    button.addEventListener("click", () => {
+      void openRecordDetail(run.id);
+    });
+    const thumb = document.createElement("img");
+    thumb.src = run.thumb_url;
+    thumb.alt = "";
+    const text = document.createElement("span");
+    text.className = "record-row-copy";
+    const mode = document.createElement("b");
+    mode.textContent = run.mode === "health" ? "Rescue" : "Discover";
+    const date = document.createElement("span");
+    date.textContent = formatDate(run.created_at);
+    text.append(mode, date);
+    button.append(thumb, text);
+    item.append(button);
+    return item;
+  });
+  recentRuns.replaceChildren(...(recentItems.length ? recentItems : [emptyListItem("No completed requests yet.")]));
+
+  const leaderboardItems = (data.leaderboard || []).map((entry) => {
+    const item = document.createElement("li");
+    if (entry.leaderboard_id === leaderboardIdentity.id) {
+      item.classList.add("is-me");
+    }
+    const rank = document.createElement("b");
+    rank.textContent = `#${entry.rank}`;
+    const name = document.createElement("span");
+    name.textContent = entry.display_name || "Wildkeeper";
+    const counts = document.createElement("small");
+    counts.textContent = `${entry.total || 0} total | ${entry.discover || 0} discover | ${entry.rescue || 0} rescue`;
+    item.append(rank, name, counts);
+    return item;
+  });
+  leaderboardList.replaceChildren(...(leaderboardItems.length ? leaderboardItems : [emptyListItem("No completed requests yet.")]));
+}
+
+async function openRecordDetail(runId) {
+  setLeaderboardTab("detail");
+  const cachedRecord = recentRecordCache.get(runId);
+  if (cachedRecord) {
+    renderRecordDetail(cachedRecord);
+  } else {
+    renderRecordDetailLoading();
+  }
+  try {
+    const params = new URLSearchParams({ leaderboard_id: leaderboardIdentity.id });
+    const response = await fetch(`/api/leaderboard/runs/${encodeURIComponent(runId)}?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`Record failed with ${response.status}`);
+    }
+    renderRecordDetail(await response.json());
+  } catch {
+    if (cachedRecord) {
+      return;
+    }
+    recordDetailTitle.textContent = "Record unavailable";
+    recordDetailMode.textContent = "";
+    recordDetailDate.textContent = "";
+    recordDetailImage.removeAttribute("src");
+    recordDetailText.textContent = "This record could not be opened.";
+  }
+}
+
+function renderRecordDetailLoading() {
+  recordDetailTitle.textContent = "Opening record...";
+  recordDetailMode.textContent = "";
+  recordDetailDate.textContent = "";
+  recordDetailImage.removeAttribute("src");
+  recordDetailText.textContent = "";
+}
+
+function renderRecordDetail(record) {
+  const label = record.mode === "health" ? "Plant Rescue" : "Plant Discovery";
+  recordDetailMode.textContent = label;
+  recordDetailTitle.textContent = record.leaderboard_name || leaderboardIdentity.name || "Wildkeeper";
+  recordDetailDate.textContent = formatDate(record.created_at);
+  recordDetailImage.src = record.thumb_url;
+  recordDetailImage.alt = label;
+  recordDetailText.textContent = record.final_text || "No response text was saved for this record.";
+}
+
+function emptyListItem(message) {
+  const item = document.createElement("li");
+  item.className = "empty-row";
+  item.textContent = message;
+  return item;
+}
+
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 async function runQuest(mode) {
+  if (!hasSavedName()) {
+    runState.textContent = "Name needed";
+    nameInput.focus();
+    return;
+  }
   const image = imageInput.files?.[0];
   if (!image) {
     runState.textContent = "Image needed";
@@ -146,6 +456,8 @@ async function runQuest(mode) {
   const form = new FormData();
   form.append("mode", mode);
   form.append("image", image);
+  form.append("leaderboard_id", leaderboardIdentity.id);
+  form.append("leaderboard_name", leaderboardIdentity.name);
 
   try {
     const response = await fetch("/api/run", { method: "POST", body: form });
@@ -177,6 +489,9 @@ async function runQuest(mode) {
     await waitForTextIdle();
     setBusy(false);
     await loadJournalStats();
+    if (!leaderboardModal.hidden) {
+      await loadLeaderboard();
+    }
   }
 }
 
@@ -235,8 +550,7 @@ function setBusy(value) {
   isRunning = value;
   imageInput.disabled = value;
   clearImageBtn.disabled = value;
-  identifyBtn.disabled = value;
-  healthBtn.disabled = value;
+  updateActionAvailability();
   dropZone.setAttribute("aria-busy", String(value));
   dropZone.classList.toggle("is-disabled", value);
   dropZone.classList.toggle("is-loading", value);
@@ -471,4 +785,5 @@ function resolveAudioIdle() {
   }
 }
 
+syncNameUi();
 loadJournalStats();

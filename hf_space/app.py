@@ -12,6 +12,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 import uuid
 import urllib.error
@@ -98,6 +99,7 @@ def default_data_root() -> Path:
 DATA_ROOT = default_data_root()
 DB_PATH = Path(os.environ.get("ARANYA_DB_PATH", str(DATA_ROOT / "aranya.sqlite3")))
 UPLOAD_ROOT = DATA_ROOT / "uploads"
+THUMB_ROOT = DATA_ROOT / "thumbs"
 AUDIO_ROOT = DATA_ROOT / "audio"
 MODEL_CACHE_ROOT = Path(os.environ.get("ARANYA_MODEL_CACHE_DIR", str(DATA_ROOT / "models")))
 DEFAULT_VOICE_SAMPLE_MP3 = FRONTEND_DIR / "assets" / "voice_sample.mp3"
@@ -114,12 +116,19 @@ DEFAULT_VOXCPM_CPP_REPO = "https://github.com/bluryar/VoxCPM.cpp.git"
 BLOCKING_MODEL_STARTUP = os.environ.get("ARANYA_BLOCKING_MODEL_STARTUP", "1") == "1"
 MODEL_IMAGE_SIZE = 448
 DB_INITIALIZED = False
+DB_SCHEMA_LOCK = threading.Lock()
+DB_BUSY_TIMEOUT_MS = int(os.environ.get("ARANYA_DB_BUSY_TIMEOUT_MS", "5000"))
+MAX_UPLOAD_BYTES = int(os.environ.get("ARANYA_MAX_UPLOAD_BYTES", str(8 * 1024 * 1024)))
 REQUIRE_TTS = os.environ.get("ARANYA_REQUIRE_TTS", "1") != "0"
 REQUIRE_LLAMA_GPU = os.environ.get("ARANYA_REQUIRE_LLAMA_GPU", "0") == "1"
 REQUIRE_TTS_GPU = os.environ.get("ARANYA_REQUIRE_TTS_GPU", "0") == "1"
 VOXCPM_BUILD_ATTEMPTED: set[str] = set()
 
-PROMPT_VERSION = "aranya-v1"
+PROMPT_VERSION = "aranya-v2-no-thinking"
+NO_THINKING_SYSTEM_PROMPT = (
+    "Respond with only the final user-facing answer. Do not write hidden reasoning, chain of thought, "
+    "analysis notes, or <think> blocks."
+)
 MODE_CONFIG = {
     "identify": {
         "title": "Embark on Discovery",
@@ -154,15 +163,17 @@ def utc_now() -> str:
 
 
 def ensure_dirs() -> None:
-    for path in [DATA_ROOT, UPLOAD_ROOT, AUDIO_ROOT, MODEL_CACHE_ROOT, DB_PATH.parent]:
+    for path in [DATA_ROOT, UPLOAD_ROOT, THUMB_ROOT, AUDIO_ROOT, MODEL_CACHE_ROOT, DB_PATH.parent]:
         path.mkdir(parents=True, exist_ok=True)
 
 
 def connect_db() -> sqlite3.Connection:
     ensure_dirs()
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, timeout=DB_BUSY_TIMEOUT_MS / 1000, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute(f"PRAGMA busy_timeout={DB_BUSY_TIMEOUT_MS}")
+    conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA foreign_keys=ON")
     ensure_schema(conn)
     return conn
@@ -172,33 +183,49 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     global DB_INITIALIZED
     if DB_INITIALIZED:
         return
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS runs (
-            id TEXT PRIMARY KEY,
-            created_at TEXT NOT NULL,
-            hf_username TEXT,
-            mode TEXT NOT NULL,
-            image_sha256 TEXT NOT NULL,
-            image_path TEXT NOT NULL,
-            prompt_version TEXT NOT NULL,
-            model_path TEXT,
-            mmproj_path TEXT,
-            status TEXT NOT NULL,
-            latency_ms INTEGER,
-            error TEXT
-        );
+    with DB_SCHEMA_LOCK:
+        if DB_INITIALIZED:
+            return
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS runs (
+                id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                hf_username TEXT,
+                leaderboard_id TEXT,
+                leaderboard_name TEXT,
+                mode TEXT NOT NULL,
+                image_sha256 TEXT NOT NULL,
+                image_path TEXT NOT NULL,
+                thumbnail_path TEXT,
+                prompt_version TEXT NOT NULL,
+                model_path TEXT,
+                mmproj_path TEXT,
+                status TEXT NOT NULL,
+                latency_ms INTEGER,
+                error TEXT
+            );
 
-        CREATE TABLE IF NOT EXISTS outputs (
-            id TEXT PRIMARY KEY,
-            run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
-            final_text TEXT,
-            parsed_json TEXT,
-            audio_path TEXT
-        );
-        """
-    )
-    DB_INITIALIZED = True
+            CREATE TABLE IF NOT EXISTS outputs (
+                id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+                final_text TEXT,
+                parsed_json TEXT,
+                audio_path TEXT
+            );
+            """
+        )
+        existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(runs)").fetchall()}
+        if "leaderboard_id" not in existing_columns:
+            conn.execute("ALTER TABLE runs ADD COLUMN leaderboard_id TEXT")
+        if "leaderboard_name" not in existing_columns:
+            conn.execute("ALTER TABLE runs ADD COLUMN leaderboard_name TEXT")
+        if "thumbnail_path" not in existing_columns:
+            conn.execute("ALTER TABLE runs ADD COLUMN thumbnail_path TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_runs_leaderboard ON runs (leaderboard_id, status, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_runs_status_created ON runs (status, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_outputs_run_id ON outputs (run_id)")
+        DB_INITIALIZED = True
 
 
 def init_db() -> None:
@@ -234,15 +261,41 @@ def normalized_upload_bytes(upload: UploadFile) -> bytes:
         upload.file.seek(0)
 
 
-def save_upload(upload: UploadFile, mode: str) -> tuple[Path, str]:
+def save_thumbnail(image_bytes: bytes, target: Path) -> Path:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with Image.open(io.BytesIO(image_bytes)) as image:
+        image.thumbnail((320, 320), Image.Resampling.LANCZOS)
+        image = image.convert("RGB")
+        image.save(target, format="WEBP", quality=int(os.environ.get("ARANYA_THUMB_WEBP_QUALITY", "78")), method=6)
+    return target
+
+
+def save_upload(upload: UploadFile, mode: str) -> tuple[Path, str, Path]:
+    if MAX_UPLOAD_BYTES > 0:
+        try:
+            current_position = upload.file.tell()
+            upload.file.seek(0, os.SEEK_END)
+            upload_size = upload.file.tell()
+            upload.file.seek(current_position)
+        except Exception:
+            upload_size = getattr(upload, "size", None)
+        if upload_size is not None and upload_size > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Image upload is too large. Maximum allowed size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+            )
     stamp = datetime.now(timezone.utc)
     target_dir = UPLOAD_ROOT / stamp.strftime("%Y") / stamp.strftime("%m") / stamp.strftime("%d")
+    thumb_dir = THUMB_ROOT / stamp.strftime("%Y") / stamp.strftime("%m") / stamp.strftime("%d")
     target_dir.mkdir(parents=True, exist_ok=True)
-    target = target_dir / f"{mode}-{uuid.uuid4().hex}.jpg"
+    image_id = uuid.uuid4().hex
+    target = target_dir / f"{mode}-{image_id}.jpg"
+    thumbnail = thumb_dir / f"{mode}-{image_id}.webp"
     image_bytes = normalized_upload_bytes(upload)
     digest = hashlib.sha256(image_bytes).hexdigest()
     target.write_bytes(image_bytes)
-    return target, digest
+    save_thumbnail(image_bytes, thumbnail)
+    return target, digest, thumbnail
 
 
 def detect_hf_username(
@@ -261,6 +314,21 @@ def detect_hf_username(
     return None
 
 
+def clean_leaderboard_value(value: str | None, max_length: int) -> str | None:
+    if value is None:
+        return None
+    cleaned = " ".join(value.strip().split())
+    if not cleaned:
+        return None
+    return cleaned[:max_length]
+
+
+def fallback_leaderboard_name(leaderboard_id: str | None) -> str:
+    if not leaderboard_id:
+        return "Wildkeeper"
+    return f"Wildkeeper {leaderboard_id[-4:].upper()}"
+
+
 def ndjson(event: dict) -> bytes:
     return (json.dumps(event, ensure_ascii=True) + "\n").encode("utf-8")
 
@@ -273,6 +341,53 @@ def next_stream_chunk(iterator: Iterable) -> object:
         return next(iterator)
     except StopIteration:
         return _STREAM_DONE
+
+
+class ThinkingBlockFilter:
+    """Removes streamed <think>...</think> blocks, including tags split across chunks."""
+
+    OPEN_TAG = "<think>"
+    CLOSE_TAG = "</think>"
+
+    def __init__(self) -> None:
+        self.buffer = ""
+        self.in_thinking_block = False
+
+    def feed(self, text: str) -> str:
+        self.buffer += text
+        output: list[str] = []
+        while self.buffer:
+            lower = self.buffer.lower()
+            if self.in_thinking_block:
+                close_index = lower.find(self.CLOSE_TAG)
+                if close_index < 0:
+                    self.buffer = self.buffer[-(len(self.CLOSE_TAG) - 1) :]
+                    return "".join(output)
+                self.buffer = self.buffer[close_index + len(self.CLOSE_TAG) :]
+                self.in_thinking_block = False
+                continue
+
+            open_index = lower.find(self.OPEN_TAG)
+            if open_index < 0:
+                keep = len(self.OPEN_TAG) - 1
+                if len(self.buffer) <= keep:
+                    return "".join(output)
+                output.append(self.buffer[:-keep])
+                self.buffer = self.buffer[-keep:]
+                return "".join(output)
+
+            output.append(self.buffer[:open_index])
+            self.buffer = self.buffer[open_index + len(self.OPEN_TAG) :]
+            self.in_thinking_block = True
+        return "".join(output)
+
+    def flush(self) -> str:
+        if self.in_thinking_block:
+            self.buffer = ""
+            return ""
+        text = self.buffer
+        self.buffer = ""
+        return text
 
 
 def image_data_uri(image_path: Path) -> str:
@@ -717,6 +832,10 @@ class NativeInferenceWorker:
         image_uri = await asyncio.to_thread(image_data_uri, image_path)
         messages = [
             {
+                "role": "system",
+                "content": NO_THINKING_SYSTEM_PROMPT,
+            },
+            {
                 "role": "user",
                 "content": [
                     {"type": "image_url", "image_url": {"url": image_uri}},
@@ -728,23 +847,37 @@ class NativeInferenceWorker:
         temperature = float(os.environ.get("LLAMA_TEMPERATURE", "0.2"))
 
         async with self.llm_lock:
-            stream = await asyncio.to_thread(
-                self.llm.create_chat_completion,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                stream=True,
-            )
+            completion_kwargs = {
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "stream": True,
+            }
+            if os.environ.get("LLAMA_DISABLE_THINKING", "1") == "1":
+                completion_kwargs["chat_template_kwargs"] = {"enable_thinking": False}
+            try:
+                stream = await asyncio.to_thread(self.llm.create_chat_completion, **completion_kwargs)
+            except TypeError:
+                if "chat_template_kwargs" not in completion_kwargs:
+                    raise
+                completion_kwargs.pop("chat_template_kwargs")
+                stream = await asyncio.to_thread(self.llm.create_chat_completion, **completion_kwargs)
             iterator = iter(stream)
+            thinking_filter = ThinkingBlockFilter()
             while True:
                 chunk = await asyncio.to_thread(next_stream_chunk, iterator)
                 if chunk is _STREAM_DONE:
+                    tail = thinking_filter.flush()
+                    if tail:
+                        yield tail
                     return
                 choice = (chunk.get("choices") or [{}])[0]
                 delta = choice.get("delta") or {}
                 text = delta.get("content")
                 if text:
-                    yield str(text)
+                    filtered = thinking_filter.feed(str(text))
+                    if filtered:
+                        yield filtered
 
     def close(self) -> None:
         self.llm = None
@@ -1265,6 +1398,17 @@ def audio_file_suffix() -> str:
     return "pcm" if fmt == "pcm" else fmt
 
 
+def mark_run_error(run_id: str, message: str) -> None:
+    try:
+        with connect_db() as conn:
+            conn.execute(
+                "UPDATE runs SET status = ?, error = ? WHERE id = ? AND status = ?",
+                ("error", message, run_id, "running"),
+            )
+    except Exception:
+        logger.exception("Could not mark run %s as error.", run_id)
+
+
 async def run_analysis_stream(
     run_id: str,
     mode: str,
@@ -1394,15 +1538,22 @@ async def run_analysis_stream(
             )
         yield ndjson({"type": "record_saved", "run_id": run_id})
         yield ndjson({"type": "done", "run_id": run_id})
+    except asyncio.CancelledError:
+        for task in tasks:
+            task.cancel()
+        mark_run_error(run_id, "Client disconnected before the stream completed.")
+        raise
     except Exception as exc:
         for task in tasks:
             task.cancel()
-        with connect_db() as conn:
-            conn.execute(
-                "UPDATE runs SET status = ?, error = ? WHERE id = ?",
-                ("error", str(exc), run_id),
-            )
+        mark_run_error(run_id, str(exc))
         yield ndjson({"type": "error", "message": str(exc)})
+    finally:
+        pending = [task for task in (llm_task, tts_task) if not task.done()]
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
 
 
 async def start_application() -> None:
@@ -1558,18 +1709,193 @@ async def api_journal() -> JSONResponse:
     )
 
 
+@app.get("/api/leaderboard")
+async def api_leaderboard(leaderboard_id: str | None = None) -> JSONResponse:
+    current_id = clean_leaderboard_value(leaderboard_id, 128)
+    with connect_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                leaderboard_id,
+                COALESCE(
+                    (
+                        SELECT r2.leaderboard_name
+                        FROM runs r2
+                        WHERE r2.leaderboard_id = runs.leaderboard_id
+                          AND r2.leaderboard_name IS NOT NULL
+                          AND TRIM(r2.leaderboard_name) != ''
+                        ORDER BY r2.created_at DESC
+                        LIMIT 1
+                    ),
+                    ''
+                ) AS display_name,
+                COUNT(*) AS total,
+                SUM(CASE WHEN mode = 'identify' THEN 1 ELSE 0 END) AS discover,
+                SUM(CASE WHEN mode = 'health' THEN 1 ELSE 0 END) AS rescue,
+                MAX(created_at) AS last_activity
+            FROM runs
+            WHERE status = 'complete'
+              AND leaderboard_id IS NOT NULL
+              AND TRIM(leaderboard_id) != ''
+            GROUP BY leaderboard_id
+            ORDER BY total DESC, last_activity DESC
+            """
+        ).fetchall()
+        recent_rows = []
+        if current_id:
+            recent_rows = conn.execute(
+                """
+                SELECT
+                    id,
+                    mode,
+                    created_at,
+                    (
+                        SELECT outputs.final_text
+                        FROM outputs
+                        WHERE outputs.run_id = runs.id
+                        LIMIT 1
+                    ) AS final_text
+                FROM runs
+                WHERE status = 'complete'
+                  AND leaderboard_id = ?
+                ORDER BY created_at DESC
+                LIMIT 10
+                """,
+                (current_id,),
+            ).fetchall()
+
+    leaderboard = []
+    me = {
+        "rank": None,
+        "total": 0,
+        "discover": 0,
+        "rescue": 0,
+        "last_activity": None,
+        "display_name": fallback_leaderboard_name(current_id),
+    }
+    for index, row in enumerate(rows, start=1):
+        row_id = row["leaderboard_id"]
+        display_name = row["display_name"] or fallback_leaderboard_name(row_id)
+        entry = {
+            "rank": index,
+            "leaderboard_id": row_id,
+            "display_name": display_name,
+            "total": row["total"] or 0,
+            "discover": row["discover"] or 0,
+            "rescue": row["rescue"] or 0,
+            "last_activity": row["last_activity"],
+        }
+        if len(leaderboard) < 10:
+            leaderboard.append(entry)
+        if current_id and row_id == current_id:
+            me = {
+                "rank": index,
+                "total": entry["total"],
+                "discover": entry["discover"],
+                "rescue": entry["rescue"],
+                "last_activity": entry["last_activity"],
+                "display_name": entry["display_name"],
+            }
+
+    return JSONResponse(
+        {
+            "me": me,
+            "recent": [
+                {
+                    "id": row["id"],
+                    "mode": row["mode"],
+                    "created_at": row["created_at"],
+                    "final_text": row["final_text"] or "",
+                    "thumb_url": f"/api/leaderboard/runs/{row['id']}/thumb?leaderboard_id={current_id}",
+                }
+                for row in recent_rows
+            ],
+            "leaderboard": leaderboard,
+        }
+    )
+
+
+@app.get("/api/leaderboard/runs/{run_id}")
+async def api_leaderboard_run(run_id: str, leaderboard_id: str | None = None) -> JSONResponse:
+    current_id = clean_leaderboard_value(leaderboard_id, 128)
+    if not current_id:
+        raise HTTPException(status_code=400, detail="leaderboard_id is required")
+    with connect_db() as conn:
+        row = conn.execute(
+            """
+            SELECT
+                runs.id,
+                runs.mode,
+                runs.created_at,
+                runs.leaderboard_name,
+                outputs.final_text
+            FROM runs
+            LEFT JOIN outputs ON outputs.run_id = runs.id
+            WHERE runs.id = ?
+              AND runs.leaderboard_id = ?
+              AND runs.status = 'complete'
+            LIMIT 1
+            """,
+            (run_id, current_id),
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return JSONResponse(
+        {
+            "id": row["id"],
+            "mode": row["mode"],
+            "created_at": row["created_at"],
+            "leaderboard_name": row["leaderboard_name"] or fallback_leaderboard_name(current_id),
+            "final_text": row["final_text"] or "",
+            "thumb_url": f"/api/leaderboard/runs/{row['id']}/thumb?leaderboard_id={current_id}",
+        }
+    )
+
+
+@app.get("/api/leaderboard/runs/{run_id}/thumb")
+async def api_leaderboard_run_thumb(run_id: str, leaderboard_id: str | None = None) -> FileResponse:
+    current_id = clean_leaderboard_value(leaderboard_id, 128)
+    if not current_id:
+        raise HTTPException(status_code=400, detail="leaderboard_id is required")
+    with connect_db() as conn:
+        run_columns = {row["name"] for row in conn.execute("PRAGMA table_info(runs)").fetchall()}
+        image_columns = "thumbnail_path, image_path" if "thumbnail_path" in run_columns else "image_path"
+        row = conn.execute(
+            f"""
+            SELECT {image_columns}
+            FROM runs
+            WHERE id = ?
+              AND leaderboard_id = ?
+              AND status = 'complete'
+            LIMIT 1
+            """,
+            (run_id, current_id),
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+    image_path = Path(row["thumbnail_path"] or row["image_path"]) if "thumbnail_path" in row.keys() else Path(row["image_path"])
+    if not image_path.exists() or not image_path.is_file():
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+    media_type = mimetypes.guess_type(image_path.name)[0] or "application/octet-stream"
+    return FileResponse(image_path, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
+
+
 @app.post("/api/run")
 async def api_run(
     request: Request,
     mode: str = Form(...),
     image: UploadFile = File(...),
+    leaderboard_id: str | None = Form(default=None),
+    leaderboard_name: str | None = Form(default=None),
     x_hf_username: str | None = Header(default=None),
     x_forwarded_user: str | None = Header(default=None),
 ) -> StreamingResponse:
     if mode not in MODE_CONFIG:
         raise HTTPException(status_code=400, detail="mode must be identify or health")
+    clean_id = clean_leaderboard_value(leaderboard_id, 128)
+    clean_name = clean_leaderboard_value(leaderboard_name, 80)
     run_id = uuid.uuid4().hex
-    image_path, image_sha256 = save_upload(image, mode)
+    image_path, image_sha256, thumbnail_path = await asyncio.to_thread(save_upload, image, mode)
     username = detect_hf_username(request, x_hf_username, x_forwarded_user)
     worker = workers.get(mode) or build_worker(mode)
     workers[mode] = worker
@@ -1578,17 +1904,20 @@ async def api_run(
         conn.execute(
             """
             INSERT INTO runs (
-                id, created_at, hf_username, mode, image_sha256, image_path,
-                prompt_version, model_path, mmproj_path, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, created_at, hf_username, leaderboard_id, leaderboard_name, mode, image_sha256, image_path,
+                thumbnail_path, prompt_version, model_path, mmproj_path, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 run_id,
                 utc_now(),
                 username,
+                clean_id,
+                clean_name,
                 mode,
                 image_sha256,
                 str(image_path),
+                str(thumbnail_path),
                 PROMPT_VERSION,
                 worker.config.model_path,
                 worker.config.mmproj_path,

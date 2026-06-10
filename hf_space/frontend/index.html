@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Aranya: A Wildkeeper's Adventure</title>
-    <link rel="stylesheet" href="/frontend/styles.css?v=20260610-stats-counter-8" />
+    <link rel="stylesheet" href="/frontend/styles.css?v=20260610-webp-1" />
   </head>
   <body>
     <main class="app-shell">
-      <img class="brand-logo" src="/frontend/assets/aranya-logo.png" alt="Aranya: A Wildkeeper's Adventure" />
+      <img class="brand-logo" src="/frontend/assets/aranya-logo.webp" alt="Aranya: A Wildkeeper's Adventure" />
       <section class="stats-counter" aria-label="Wildkeeper progress">
-        <img src="/frontend/assets/stats_count.png" alt="" aria-hidden="true" />
+        <img src="/frontend/assets/stats_count.webp" alt="" aria-hidden="true" />
         <p>
           <span><b id="speciesFoundCount">0</b> Species Found</span>
           <span><b id="plantsRescuedCount">0</b> Plants Rescued</span>
@@ -20,7 +20,7 @@
       <section class="game-board" aria-label="Aranya expedition">
         <div class="expedition-column">
           <section class="center-panel" aria-label="Plant upload and analysis">
-            <img class="panel-art" src="/frontend/assets/center.png" alt="" aria-hidden="true" />
+            <img class="panel-art" src="/frontend/assets/center.webp" alt="" aria-hidden="true" />
             <div class="center-content">
               <div class="upload-drop" id="dropZone" role="button" tabindex="0" aria-label="Upload plant image">
                 <span class="preview-wrap" id="previewWrap">
@@ -28,9 +28,14 @@
                   <span id="imageLoader" class="image-loader" aria-hidden="true"></span>
                   <button id="clearImageBtn" class="clear-image" type="button" aria-label="Remove uploaded image">&times;</button>
                 </span>
-                <img class="upload-art" src="/frontend/assets/upload_image.png" alt="Upload image" />
+                <img class="upload-art" src="/frontend/assets/upload_image.webp" alt="Upload image" />
                 <span class="upload-label">Upload Image</span>
               </div>
+              <form id="nameForm" class="name-form" autocomplete="off">
+                <input id="nameInput" class="name-input" type="text" placeholder="Name" maxlength="80" aria-label="Name" />
+                <button id="nameSaveBtn" class="name-save" type="submit">Save</button>
+              </form>
+              <p id="namePlate" class="name-plate" hidden></p>
               <input id="imageInput" class="file-input" type="file" accept="image/*" />
               <p id="runState" class="sr-status">Ready</p>
               <p id="resultText" class="sr-status">Upload a plant image to begin.</p>
@@ -39,26 +44,64 @@
 
           <section class="action-row" aria-label="Analysis actions">
             <button id="identifyBtn" class="action-button discover">
-              <img src="/frontend/assets/green_button_normalized.png" alt="" aria-hidden="true" />
+              <img src="/frontend/assets/green_button_normalized.webp" alt="" aria-hidden="true" />
               <span><b>Discover</b><small>Identify and learn about this plant</small></span>
             </button>
             <button id="healthBtn" class="action-button rescue">
-              <img src="/frontend/assets/red_button_normalized.png" alt="" aria-hidden="true" />
+              <img src="/frontend/assets/red_button_normalized.webp" alt="" aria-hidden="true" />
               <span><b>Rescue</b><small>Assess health and unlock care tips</small></span>
             </button>
           </section>
         </div>
 
         <aside class="journal-panel" aria-label="Wildkeeper journal">
-          <img class="panel-art" src="/frontend/assets/journal.png" alt="" aria-hidden="true" />
+          <img class="panel-art" src="/frontend/assets/journal.webp" alt="" aria-hidden="true" />
           <div class="journal-content">
             <h2>Wildkeeper Journal</h2>
-            <p class="journal-progress-label">Species Found: <b id="journalFound">0</b> / 500</p>
             <div id="journalText" class="journal-text" aria-live="polite">Upload a plant image to begin.</div>
           </div>
+          <button id="leaderboardBtn" class="leaderboard-button" type="button" aria-label="Open leaderboard">
+            <img src="/frontend/assets/leaderborad_round.webp" alt="" aria-hidden="true" />
+          </button>
         </aside>
       </section>
     </main>
-    <script src="/frontend/app.js?v=20260610-stats-counter-8"></script>
+    <div id="leaderboardModal" class="leaderboard-modal" hidden>
+      <div class="leaderboard-backdrop" data-close-leaderboard></div>
+      <section class="leaderboard-dialog" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+        <button id="leaderboardCloseBtn" class="leaderboard-close" type="button" aria-label="Close leaderboard">&times;</button>
+        <h2 id="leaderboardTitle">Wildkeeper Ledger</h2>
+        <div class="leaderboard-tabs" role="tablist" aria-label="Leaderboard views">
+          <button id="recordsTab" class="leaderboard-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="recordsPanel">Your Records</button>
+          <button id="rankingsTab" class="leaderboard-tab" type="button" role="tab" aria-selected="false" aria-controls="rankingsPanel">Leaderboard</button>
+        </div>
+        <div id="recordsPanel" class="leaderboard-panel is-active" role="tabpanel" aria-labelledby="recordsTab">
+          <div class="record-summary">
+            <p><span>Rank</span><b id="myRank">-</b></p>
+            <p><span>Total</span><b id="myTotal">0</b></p>
+            <p><span>Discover</span><b id="myDiscover">0</b></p>
+            <p><span>Rescue</span><b id="myRescue">0</b></p>
+          </div>
+          <p id="myLastActivity" class="leaderboard-muted">No completed requests yet.</p>
+          <ol id="recentRuns" class="recent-runs"></ol>
+        </div>
+        <div id="recordDetailPanel" class="leaderboard-panel record-detail-panel" role="tabpanel" hidden>
+          <button id="recordBackBtn" class="record-back" type="button">Back to Records</button>
+          <div class="record-detail-card">
+            <img id="recordDetailImage" class="record-detail-image" alt="" />
+            <div class="record-detail-copy">
+              <p id="recordDetailMode" class="record-detail-mode"></p>
+              <h3 id="recordDetailTitle"></h3>
+              <p id="recordDetailDate" class="leaderboard-muted"></p>
+            </div>
+          </div>
+          <div id="recordDetailText" class="record-detail-text"></div>
+        </div>
+        <div id="rankingsPanel" class="leaderboard-panel" role="tabpanel" aria-labelledby="rankingsTab" hidden>
+          <ol id="leaderboardList" class="leaderboard-list"></ol>
+        </div>
+      </section>
+    </div>
+    <script src="/frontend/app.js?v=20260610-webp-1"></script>
   </body>
 </html>
