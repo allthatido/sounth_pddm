@@ -10,3 +10,4 @@ sa_key.json
 *.jsonl
 hf_space/VoxCPM.cpp/
 hf_space/data/
+*.sqlite3

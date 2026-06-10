@@ -12,6 +12,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -285,10 +286,9 @@ def save_upload(upload: UploadFile, mode: str) -> tuple[Path, str, Path]:
                 detail=f"Image upload is too large. Maximum allowed size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
             )
     stamp = datetime.now(timezone.utc)
-    target_dir = UPLOAD_ROOT / stamp.strftime("%Y") / stamp.strftime("%m") / stamp.strftime("%d")
     thumb_dir = THUMB_ROOT / stamp.strftime("%Y") / stamp.strftime("%m") / stamp.strftime("%d")
-    target_dir.mkdir(parents=True, exist_ok=True)
     image_id = uuid.uuid4().hex
+    target_dir = Path(tempfile.mkdtemp(prefix="aranya-upload-"))
     target = target_dir / f"{mode}-{image_id}.jpg"
     thumbnail = thumb_dir / f"{mode}-{image_id}.webp"
     image_bytes = normalized_upload_bytes(upload)
@@ -296,6 +296,14 @@ def save_upload(upload: UploadFile, mode: str) -> tuple[Path, str, Path]:
     target.write_bytes(image_bytes)
     save_thumbnail(image_bytes, thumbnail)
     return target, digest, thumbnail
+
+
+def cleanup_upload_file(image_path: Path) -> None:
+    try:
+        image_path.unlink(missing_ok=True)
+        image_path.parent.rmdir()
+    except Exception:
+        logger.debug("Could not remove temporary upload %s", image_path, exc_info=True)
 
 
 def detect_hf_username(
@@ -1438,9 +1446,9 @@ async def run_analysis_stream(
                 "type": "status",
                 "message": "Opening the Wildkeeper journal...",
                 "text_delay_ms": int(os.environ.get("TTS_BALANCED_TEXT_DELAY_MS", "600")),
-                "audio_playback_rate": float(os.environ.get("TTS_AUDIO_PLAYBACK_RATE", "0.92")),
-                "audio_prebuffer_chunks": int(os.environ.get("TTS_AUDIO_PREBUFFER_CHUNKS", "3")),
-                "audio_prebuffer_max_ms": int(os.environ.get("TTS_AUDIO_PREBUFFER_MAX_MS", "2000")),
+                "audio_playback_rate": float(os.environ.get("TTS_AUDIO_PLAYBACK_RATE", "0.95")),
+                "audio_prebuffer_chunks": int(os.environ.get("TTS_AUDIO_PREBUFFER_CHUNKS", "5")),
+                "audio_prebuffer_max_ms": int(os.environ.get("TTS_AUDIO_PREBUFFER_MAX_MS", "1800")),
             }
         )
         await put_event({"type": "segment_start", "segment_id": segment_id})
@@ -1554,6 +1562,7 @@ async def run_analysis_stream(
             task.cancel()
         if pending:
             await asyncio.gather(*pending, return_exceptions=True)
+        cleanup_upload_file(image_path)
 
 
 async def start_application() -> None:
